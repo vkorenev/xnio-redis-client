@@ -1,0 +1,3 @@
+@ParametersAreNonnullByDefault package xnioredis.encoder;
+
+import javax.annotation.ParametersAreNonnullByDefault;

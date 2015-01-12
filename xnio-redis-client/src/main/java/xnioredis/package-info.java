@@ -1,0 +1,3 @@
+@ParametersAreNonnullByDefault package xnioredis;
+
+import javax.annotation.ParametersAreNonnullByDefault;
