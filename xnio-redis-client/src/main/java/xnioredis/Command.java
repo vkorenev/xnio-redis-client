@@ -11,5 +11,5 @@ import java.nio.charset.CharsetEncoder;
 public interface Command<T> {
     void writeCommand(StreamSinkChannel channel, CharsetEncoder charsetEncoder, Pool<ByteBuffer> bufferPool) throws IOException;
 
-    ReplyParser<T> parser();
+    ReplyParser<? extends T> parser();
 }

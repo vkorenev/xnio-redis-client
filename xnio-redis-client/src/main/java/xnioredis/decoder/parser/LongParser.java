@@ -1,45 +1,24 @@
 package xnioredis.decoder.parser;
 
 import java.nio.ByteBuffer;
+import java.util.function.LongFunction;
 
 public abstract class LongParser {
     static final LongParser PARSER = new LongParser() {
         @Override
-        public Result parse(ByteBuffer buffer) {
-            return doParse(buffer, false, 0, SIGN_OR_DIGIT);
+        <T> T parse(ByteBuffer buffer, Visitor<T> visitor) {
+            return doParse(buffer, visitor, false, 0, SIGN_OR_DIGIT);
         }
     };
-    private static final LongParser.Visitor<Parser.Result<Integer>> INTEGER_ADAPTOR_VISITOR = new LongParser.Visitor<Parser.Result<Integer>>() {
-        @Override
-        public Parser.Result<Integer> success(long value) {
-            return new Parser.Success<>((int) value);
-        }
-
-        @Override
-        public Parser.Result<Integer> partial(LongParser partial) {
-            return (Parser.Partial<Integer>) buffer -> partial.parse(buffer).accept(INTEGER_ADAPTOR_VISITOR);
-        }
-    };
-    private static final LongParser.Visitor<Parser.Result<Long>> LONG_ADAPTOR_VISITOR = new LongParser.Visitor<Parser.Result<Long>>() {
-        @Override
-        public Parser.Result<Long> success(long value) {
-            return new Parser.Success<>(value);
-        }
-
-        @Override
-        public Parser.Result<Long> partial(LongParser partial) {
-            return (Parser.Partial<Long>) buffer -> partial.parse(buffer).accept(LONG_ADAPTOR_VISITOR);
-        }
-    };
-    public static final Parser<Integer> INTEGER_PARSER = buffer -> PARSER.parse(buffer).accept(INTEGER_ADAPTOR_VISITOR);
-    public static final Parser<Long> LONG_PARSER = buffer -> PARSER.parse(buffer).accept(LONG_ADAPTOR_VISITOR);
+    public static final Parser<Integer> INTEGER_PARSER = new ParserAdaptor<>(PARSER, l -> (int) l);
+    public static final Parser<Long> LONG_PARSER = new ParserAdaptor<>(PARSER, l -> l);
     private static final int SIGN_OR_DIGIT = 0;
     private static final int DIGIT = 1;
     private static final int WAITING_FOR_LF = 2;
 
-    abstract Result parse(ByteBuffer buffer);
+    abstract <T> T parse(ByteBuffer buffer, Visitor<T> visitor);
 
-    private static Result doParse(ByteBuffer buffer, boolean negative, long num, int state) {
+    private static <T> T doParse(ByteBuffer buffer, Visitor<T> visitor, boolean negative, long num, int state) {
         while (buffer.hasRemaining()) {
             byte b = buffer.get();
             switch (state) {
@@ -90,13 +69,13 @@ public abstract class LongParser {
                     break;
                 case WAITING_FOR_LF:
                     if (b == '\n') {
-                        return success(negative ? -num : num);
+                        return visitor.success(negative ? -num : num);
                     } else {
                         throw new IllegalStateException("LF is expected");
                     }
             }
         }
-        return new LongPartial(negative, num, state);
+        return visitor.partial(new LongPartial(negative, num, state));
     }
 
     interface Visitor<T> {
@@ -105,11 +84,7 @@ public abstract class LongParser {
         T partial(LongParser partial);
     }
 
-    interface Result {
-        <T> T accept(Visitor<T> visitor);
-    }
-
-    private static class LongPartial extends LongParser implements Result {
+    private static class LongPartial extends LongParser {
         private final boolean negative;
         private final long num;
         private final int state;
@@ -121,22 +96,33 @@ public abstract class LongParser {
         }
 
         @Override
-        public Result parse(ByteBuffer buffer) {
-            return doParse(buffer, negative, num, state);
-        }
-
-        @Override
-        public <U> U accept(Visitor<U> visitor) {
-            return visitor.partial(this);
+        <T> T parse(ByteBuffer buffer, Visitor<T> visitor) {
+            return doParse(buffer, visitor, negative, num, state);
         }
     }
 
-    private static Result success(long result) {
-        return new Result() {
-            @Override
-            public <T> T accept(Visitor<T> visitor) {
-                return visitor.success(result);
-            }
-        };
+    private static class ParserAdaptor<T> implements Parser<T> {
+        private final LongParser parser;
+        private final LongFunction<T> longFunction;
+
+        private ParserAdaptor(LongParser parser, LongFunction<T> longFunction) {
+            this.parser = parser;
+            this.longFunction = longFunction;
+        }
+
+        @Override
+        public <U> U parse(ByteBuffer buffer, Visitor<? super T, U> visitor) {
+            return parser.parse(buffer, new LongParser.Visitor<U>() {
+                @Override
+                public U success(long value) {
+                    return visitor.success(longFunction.apply(value));
+                }
+
+                @Override
+                public U partial(LongParser partial) {
+                    return visitor.partial(new ParserAdaptor<>(partial, longFunction));
+                }
+            });
+        }
     }
 }

@@ -17,35 +17,31 @@ public class ArrayParser<T, E> implements Parser<T> {
     }
 
     @Override
-    public Result<T> parse(ByteBuffer buffer) {
-        ArrayBuilderFactory.Builder<E, ? extends T> builder = builderFactory.create(len);
-        if (len == 0) {
-            return new Success<>(builder.build());
-        } else {
-            return doParse(buffer, builder, len, elementParser);
-        }
+    public <U> U parse(ByteBuffer buffer, Visitor<? super T, U> visitor) {
+        return doParse(buffer, visitor, builderFactory.create(len), len, elementParser);
     }
 
-    private Result<T> doParse(ByteBuffer buffer, ArrayBuilderFactory.Builder<E, ? extends T> builder, int remaining, Parser<? extends E> elementParser) {
-        Visitor<E, Result<T>> visitor = new Visitor<E, Result<T>>() {
-            private int r = remaining;
+    private <U> U doParse(ByteBuffer buffer, Visitor<? super T, U> visitor, ArrayBuilderFactory.Builder<E, ? extends T> builder, int remaining, Parser<? extends E> elemParser) {
+        if (remaining == 0) {
+            return visitor.success(builder.build());
+        } else {
+            return elemParser.parse(buffer, new Visitor<E, U>() {
+                @Override
+                public U success(@Nullable E value) {
+                    builder.add(value);
+                    return doParse(buffer, visitor, builder, remaining - 1, elementParser);
+                }
 
-            @Override
-            public Result<T> success(@Nullable E value) {
-                builder.add(value);
-                r--;
-                return r == 0 ? new Success<>(builder.build()) : null;
-            }
-
-            @Override
-            public Result<T> partial(Parser<? extends E> partial) {
-                return (Partial<T>) buffer -> doParse(buffer, builder, r, partial);
-            }
-        };
-        Result<T> result;
-        while ((result = elementParser.parse(buffer).accept(visitor)) == null) {
-            elementParser = this.elementParser;
+                @Override
+                public U partial(Parser<? extends E> partial) {
+                    return visitor.partial(new Parser<T>() {
+                        @Override
+                        public <U1> U1 parse(ByteBuffer buffer, Visitor<? super T, U1> visitor) {
+                            return doParse(buffer, visitor, builder, remaining, partial);
+                        }
+                    });
+                }
+            });
         }
-        return result;
     }
 }

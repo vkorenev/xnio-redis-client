@@ -72,7 +72,7 @@ class XnioRedisClient extends RedisClient {
 
                     @Override
                     public void parse(ByteBuffer buffer) throws IOException {
-                        parser.parse(buffer).acceptReply(new ReplyParser.ReplyVisitor<T, Void>() {
+                        parser.parseReply(buffer, new ReplyParser.ReplyVisitor<T, Void>() {
                             @Override
                             public Void success(@Nullable T value) {
                                 setReply(value);

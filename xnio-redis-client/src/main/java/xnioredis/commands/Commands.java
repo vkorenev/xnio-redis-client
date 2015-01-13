@@ -151,8 +151,8 @@ public class Commands {
             }
 
             @Override
-            public ReplyParser<T> parser() {
-                return parser::parse;
+            public ReplyParser<? extends T> parser() {
+                return parser;
             }
         };
     }

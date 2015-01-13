@@ -8,44 +8,40 @@ import java.nio.ByteBuffer;
 public class ArrayAsMapParser<T, K, V> implements Parser<T> {
     private final int len;
     private final MapBuilderFactory<K, V, ? extends T> builderFactory;
-    private final SeqParser<K, V> elementParser;
+    private final SeqParser<K, V> kvParser;
 
-    public ArrayAsMapParser(int len, MapBuilderFactory<K, V, ? extends T> builderFactory, SeqParser<K, V> elementParser) {
+    public ArrayAsMapParser(int len, MapBuilderFactory<K, V, ? extends T> builderFactory, SeqParser<K, V> kvParser) {
         this.len = len;
         this.builderFactory = builderFactory;
-        this.elementParser = elementParser;
+        this.kvParser = kvParser;
     }
 
     @Override
-    public Result<T> parse(ByteBuffer buffer) {
-        MapBuilderFactory.Builder<K, V, ? extends T> builder = builderFactory.create(len);
-        if (len == 0) {
-            return new Success<>(builder.build());
-        } else {
-            return doParse(buffer, builder, len, elementParser);
-        }
+    public <U> U parse(ByteBuffer buffer, Visitor<? super T, U> visitor) {
+        return doParse(buffer, visitor, builderFactory.create(len), len, kvParser);
     }
 
-    private Result<T> doParse(ByteBuffer buffer, MapBuilderFactory.Builder<K, V, ? extends T> builder, int remaining, SeqParser<K, V> kvSeqParser) {
-        SeqParser.Visitor<K, V, Result<T>> visitor = new SeqParser.Visitor<K, V, Result<T>>() {
-            private int r = remaining;
+    private <U> U doParse(ByteBuffer buffer, Visitor<? super T, U> visitor, MapBuilderFactory.Builder<K, V, ? extends T> builder, int remaining, SeqParser<? extends K, ? extends V> kvSeqParser) {
+        if (remaining == 0) {
+            return visitor.success(builder.build());
+        } else {
+            return kvSeqParser.parse(buffer, new SeqParser.Visitor<K, V, U>() {
+                @Override
+                public U success(@Nullable K value1, @Nullable V value2) {
+                    builder.put(value1, value2);
+                    return doParse(buffer, visitor, builder, remaining - 1, kvParser);
+                }
 
-            @Override
-            public Result<T> success(@Nullable K value1, @Nullable V value2) {
-                builder.put(value1, value2);
-                r--;
-                return r == 0 ? new Success<>(builder.build()) : null;
-            }
-
-            @Override
-            public Result<T> partial(SeqParser<K, V> partial) {
-                return (Partial<T>) buffer -> doParse(buffer, builder, r, partial);
-            }
-        };
-        Result<T> result;
-        while ((result = kvSeqParser.parse(buffer).accept(visitor)) == null) {
-            kvSeqParser = this.elementParser;
+                @Override
+                public U partial(SeqParser<? extends K, ? extends V> partial) {
+                    return visitor.partial(new Parser<T>() {
+                        @Override
+                        public <U1> U1 parse(ByteBuffer buffer, Visitor<? super T, U1> visitor) {
+                            return doParse(buffer, visitor, builder, remaining, partial);
+                        }
+                    });
+                }
+            });
         }
-        return result;
     }
 }

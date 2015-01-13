@@ -10,11 +10,12 @@ public class StringParser implements Parser<CharSequence> {
     private StringParser() {
     }
 
-    public Result<CharSequence> parse(ByteBuffer buffer) {
-        return doParse(buffer, new StringBuilder(), READING);
+    @Override
+    public <U> U parse(ByteBuffer buffer, Visitor<? super CharSequence, U> visitor) {
+        return doParse(buffer, visitor, new StringBuilder(), READING);
     }
 
-    private static Result<CharSequence> doParse(ByteBuffer buffer, StringBuilder stringBuilder, int state) {
+    private static <U> U doParse(ByteBuffer buffer, Visitor<? super CharSequence, U> visitor, StringBuilder stringBuilder, int state) {
         while (buffer.hasRemaining()) {
             byte b = buffer.get();
             switch (state) {
@@ -27,27 +28,18 @@ public class StringParser implements Parser<CharSequence> {
                     break;
                 case WAITING_FOR_LF:
                     if (b == '\n') {
-                        return new Success<>(stringBuilder);
+                        return visitor.success(stringBuilder);
                     } else {
                         throw new IllegalStateException("LF is expected");
                     }
             }
         }
-        return new StringPartial(stringBuilder, state);
-    }
-
-    public static class StringPartial implements Parser.Partial<CharSequence> {
-        private final StringBuilder stringBuilder;
-        private final int state;
-
-        public StringPartial(StringBuilder stringBuilder, int state) {
-            this.stringBuilder = stringBuilder;
-            this.state = state;
-        }
-
-        @Override
-        public Result<CharSequence> parse(ByteBuffer buffer) {
-            return doParse(buffer, stringBuilder, state);
-        }
+        int state1 = state;
+        return visitor.partial(new Parser<CharSequence>() {
+            @Override
+            public <U1> U1 parse(ByteBuffer buffer, Visitor<? super CharSequence, U1> visitor) {
+                return doParse(buffer, visitor, stringBuilder, state1);
+            }
+        });
     }
 }

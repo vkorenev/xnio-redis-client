@@ -6,38 +6,31 @@ import java.util.Objects;
 import java.util.function.Function;
 
 public interface ReplyParser<T> {
-    Result<? extends T> parse(ByteBuffer buffer);
+    <U> U parseReply(ByteBuffer buffer, ReplyVisitor<? super T, U> visitor);
 
     default <R> ReplyParser<R> map(Function<? super T, ? extends R> mapper) {
         Objects.requireNonNull(mapper);
-        return buffer -> {
-            Result<? extends T> result = ReplyParser.this.parse(buffer);
-            return new Result<R>() {
-                @Override
-                public <U> U acceptReply(ReplyVisitor<? super R, U> visitor) {
-                    return result.acceptReply(new ReplyVisitor<T, U>() {
-                        @Override
-                        public U success(@Nullable T value) {
-                            return visitor.success(mapper.apply(value));
-                        }
+        return new ReplyParser<R>() {
+            @Override
+            public <U> U parseReply(ByteBuffer buffer, ReplyVisitor<? super R, U> visitor) {
+                return ReplyParser.this.parseReply(buffer, new ReplyVisitor<T, U>() {
+                    @Override
+                    public U success(@Nullable T value) {
+                        return visitor.success(mapper.apply(value));
+                    }
 
-                        @Override
-                        public U failure(CharSequence message) {
-                            return visitor.failure(message);
-                        }
+                    @Override
+                    public U failure(CharSequence message) {
+                        return visitor.failure(message);
+                    }
 
-                        @Override
-                        public U partialReply(ReplyParser<? extends T> partial) {
-                            return visitor.partialReply(partial.map(mapper));
-                        }
-                    });
-                }
-            };
+                    @Override
+                    public U partialReply(ReplyParser<? extends T> partial) {
+                        return visitor.partialReply(partial.map(mapper));
+                    }
+                });
+            }
         };
-    }
-
-    interface Result<T> {
-        <U> U acceptReply(ReplyVisitor<? super T, U> visitor);
     }
 
     interface ReplyVisitor<T, U> extends Parser.Visitor<T, U> {
@@ -48,26 +41,6 @@ public interface ReplyParser<T> {
         @Override
         default U partial(Parser<? extends T> partial) {
             return partialReply(partial);
-        }
-    }
-
-    class Failure<T> implements Result<T> {
-        public final CharSequence message;
-
-        public Failure(CharSequence message) {
-            this.message = message;
-        }
-
-        @Override
-        public <U> U acceptReply(ReplyVisitor<? super T, U> visitor) {
-            return visitor.failure(message);
-        }
-    }
-
-    interface Partial<T> extends Result<T>, ReplyParser<T> {
-        @Override
-        default <U> U acceptReply(ReplyVisitor<? super T, U> visitor) {
-            return visitor.partialReply(this);
         }
     }
 }

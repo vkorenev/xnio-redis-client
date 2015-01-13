@@ -17,11 +17,11 @@ public class BulkStringParser<T> implements Parser<T> {
     }
 
     @Override
-    public Result<T> parse(ByteBuffer buffer) {
-        return doParse(buffer, builderFactory.create(len), len, READING);
+    public <U> U parse(ByteBuffer buffer, Visitor<? super T, U> visitor) {
+        return doParse(buffer, visitor, builderFactory.create(len), len, READING);
     }
 
-    private Result<T> doParse(ByteBuffer buffer, BulkStringBuilderFactory.Builder<? extends T> builder, int len, int state) {
+    private <U> U doParse(ByteBuffer buffer, Visitor<? super T, U> visitor, BulkStringBuilderFactory.Builder<? extends T> builder, int len, int state) {
         while (buffer.hasRemaining()) {
             switch (state) {
                 case READING:
@@ -45,29 +45,19 @@ public class BulkStringParser<T> implements Parser<T> {
                     break;
                 case WAITING_FOR_LF:
                     if (buffer.get() == '\n') {
-                        return new Success<>(builder.build());
+                        return visitor.success(builder.build());
                     } else {
                         throw new IllegalStateException("LF is expected");
                     }
             }
         }
-        return new BulkStringPartial(builder, len, state);
-    }
-
-    private class BulkStringPartial implements Parser.Partial<T> {
-        private final BulkStringBuilderFactory.Builder<? extends T> builder;
-        private final int len;
-        private final int state;
-
-        public BulkStringPartial(BulkStringBuilderFactory.Builder<? extends T> builder, int len, int state) {
-            this.builder = builder;
-            this.len = len;
-            this.state = state;
-        }
-
-        @Override
-        public Result<T> parse(ByteBuffer buffer) {
-            return doParse(buffer, builder, len, state);
-        }
+        int len1 = len;
+        int state1 = state;
+        return visitor.partial(new Parser<T>() {
+            @Override
+            public <U1> U1 parse(ByteBuffer buffer, Visitor<? super T, U1> visitor) {
+                return doParse(buffer, visitor, builder, len1, state1);
+            }
+        });
     }
 }

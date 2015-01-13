@@ -5,30 +5,32 @@ import java.util.function.IntFunction;
 
 public class LenParser<T> implements Parser<T> {
     private final IntFunction<Parser<T>> bodyParserFactory;
+    private final LongParser lengthParser;
 
     public LenParser(IntFunction<Parser<T>> bodyParserFactory) {
+        this(bodyParserFactory, LongParser.PARSER);
+    }
+
+    private LenParser(IntFunction<Parser<T>> bodyParserFactory, LongParser lengthParser) {
         this.bodyParserFactory = bodyParserFactory;
+        this.lengthParser = lengthParser;
     }
 
     @Override
-    public Result<T> parse(ByteBuffer buffer) {
-        return doParse(buffer, LongParser.PARSER);
-    }
-
-    private Result<T> doParse(ByteBuffer buffer, LongParser lengthParser) {
-        return lengthParser.parse(buffer).accept(new LongParser.Visitor<Result<T>>() {
+    public <U> U parse(ByteBuffer buffer, Visitor<? super T, U> visitor) {
+        return lengthParser.parse(buffer, new LongParser.Visitor<U>() {
             @Override
-            public Result<T> success(long value) {
+            public U success(long value) {
                 if (value == -1) {
-                    return new Success<>(null);
+                    return visitor.success(null);
                 } else {
-                    return bodyParserFactory.apply((int) value).parse(buffer);
+                    return bodyParserFactory.apply((int) value).parse(buffer, visitor);
                 }
             }
 
             @Override
-            public Result<T> partial(LongParser partial) {
-                return (Partial<T>) buffer -> doParse(buffer, partial);
+            public U partial(LongParser partial) {
+                return visitor.partial(new LenParser<>(bodyParserFactory, partial));
             }
         });
     }

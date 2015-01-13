@@ -2,7 +2,6 @@ package xnioredis;
 
 import org.xnio.Pool;
 import org.xnio.channels.StreamSinkChannel;
-import xnioredis.decoder.parser.Parser;
 import xnioredis.decoder.parser.ReplyParser;
 
 import javax.annotation.Nullable;
@@ -34,30 +33,35 @@ public class CommandList<T> implements Command<List<T>> {
             private final Iterator<Command<T>> commandIterator = commands.iterator();
 
             @Override
-            public Result<List<T>> parse(ByteBuffer buffer) {
+            public <U> U parseReply(ByteBuffer buffer, ReplyVisitor<? super List<T>, U> visitor) {
                 if (commandIterator.hasNext()) {
-                    return doParse(buffer, commandIterator.next().parser());
+                    return doParse(buffer, visitor, commandIterator.next().parser());
                 } else {
-                    return new Parser.Success<>(replies);
+                    return visitor.success(replies);
                 }
             }
 
-            private Result<List<T>> doParse(ByteBuffer buffer, ReplyParser<? extends T> parser) {
-                return parser.parse(buffer).acceptReply(new ReplyVisitor<T, Result<List<T>>>() {
+            private <U> U doParse(ByteBuffer buffer, ReplyVisitor<? super List<T>, U> visitor, ReplyParser<? extends T> parser) {
+                return parser.parseReply(buffer, new ReplyVisitor<T, U>() {
                     @Override
-                    public Result<List<T>> failure(CharSequence message) {
-                        return new Failure<>(message);
+                    public U failure(CharSequence message) {
+                        return visitor.failure(message);
                     }
 
                     @Override
-                    public Result<List<T>> partialReply(ReplyParser<? extends T> partial) {
-                        return (Partial<List<T>>) buffer -> doParse(buffer, partial);
+                    public U partialReply(ReplyParser<? extends T> partial) {
+                        return visitor.partialReply(new ReplyParser<List<T>>() {
+                            @Override
+                            public <U1> U1 parseReply(ByteBuffer buffer, ReplyVisitor<? super List<T>, U1> visitor) {
+                                return doParse(buffer, visitor, partial);
+                            }
+                        });
                     }
 
                     @Override
-                    public Result<List<T>> success(@Nullable T value) {
+                    public U success(@Nullable T value) {
                         replies.add(value);
-                        return parse(buffer);
+                        return parseReply(buffer, visitor);
                     }
                 });
             }
