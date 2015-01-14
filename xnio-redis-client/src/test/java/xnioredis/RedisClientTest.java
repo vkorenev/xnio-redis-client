@@ -10,8 +10,6 @@ import org.junit.Test;
 
 import java.net.InetSocketAddress;
 import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
 
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
@@ -50,8 +48,7 @@ public class RedisClientTest {
     public void openConnection() throws Exception {
         factory = new ClientFactory();
         clientFuture = factory.connect(new InetSocketAddress("localhost", 6379));
-        Futures.transform(clientFuture, (AsyncFunction<RedisClient, CharSequence>) client ->
-                client.send(FLUSHDB)).get();
+        RedisClient.send(clientFuture, FLUSHDB).get();
     }
 
     @After
@@ -66,19 +63,15 @@ public class RedisClientTest {
 
     @Test
     public void canSendSingleCommand() throws Exception {
-        ListenableFuture<CharSequence> replyFuture = Futures.transform(clientFuture,
-                (AsyncFunction<RedisClient, CharSequence>) client -> client.send(PING));
+        ListenableFuture<CharSequence> replyFuture = RedisClient.send(clientFuture, PING);
         assertThat(replyFuture.get(), hasSameContentAs("PONG"));
     }
 
     @Test
     public void canSendManyCommands() throws Exception {
-        ListenableFuture<CharSequence> replyFuture1 = Futures.transform(clientFuture,
-                (AsyncFunction<RedisClient, CharSequence>) client -> client.send(PING));
-        ListenableFuture<CharSequence> replyFuture2 = Futures.transform(clientFuture,
-                (AsyncFunction<RedisClient, CharSequence>) client -> client.send(PING));
-        ListenableFuture<CharSequence> replyFuture3 = Futures.transform(clientFuture,
-                (AsyncFunction<RedisClient, CharSequence>) client -> client.send(PING));
+        ListenableFuture<CharSequence> replyFuture1 = RedisClient.send(clientFuture, PING);
+        ListenableFuture<CharSequence> replyFuture2 = RedisClient.send(clientFuture, PING);
+        ListenableFuture<CharSequence> replyFuture3 = RedisClient.send(clientFuture, PING);
         assertThat(replyFuture1.get(), hasSameContentAs("PONG"));
         assertThat(replyFuture2.get(), hasSameContentAs("PONG"));
         assertThat(replyFuture3.get(), hasSameContentAs("PONG"));
@@ -101,38 +94,31 @@ public class RedisClientTest {
     @Test
     @SuppressWarnings({"unchecked", "varargs"})
     public void canSendListOfCommands() throws Exception {
-        assertThat(
-                Futures.transform(clientFuture, (AsyncFunction<RedisClient, List<CharSequence>>) client ->
-                        client.send(new CommandList<>(Arrays.<Command<CharSequence>>asList(PING, PING, PING)))).get(),
+        assertThat(RedisClient.send(clientFuture,
+                        new CommandList<>(Arrays.<Command<CharSequence>>asList(PING, PING, PING))).get(),
                 contains(hasSameContentAs("PONG"), hasSameContentAs("PONG"), hasSameContentAs("PONG")));
     }
 
     @Test
     public void hlenNoKey() throws Exception {
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, Integer>) client ->
-                client.send(HLEN, "NO_SUCH_KEY")).get(), equalTo(0));
+        assertThat(RedisClient.send(clientFuture, HLEN, "NO_SUCH_KEY").get(), equalTo(0));
     }
 
     @Test
     public void hgetNoKey() throws Exception {
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, CharSequence>) client ->
-                client.send(HGET, "NO_SUCH_KEY", "FIELD")).get(), nullValue());
+        assertThat(RedisClient.send(clientFuture, HGET, "NO_SUCH_KEY", "FIELD").get(), nullValue());
     }
 
     @Test
     public void hgetByteArrayNoKey() throws Exception {
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, byte[]>) client ->
-                client.send(HGET_BYTES, "NO_SUCH_KEY", "FIELD")).get(), nullValue());
+        assertThat(RedisClient.send(clientFuture, HGET_BYTES, "NO_SUCH_KEY", "FIELD").get(), nullValue());
     }
 
     @Test
     public void hkeysNoKey() throws Exception {
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, List<CharSequence>>) client ->
-                client.send(HKEYS, "NO_SUCH_KEY")).get(), empty());
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, List<CharSequence>>) client ->
-                client.send(HKEYS2, "NO_SUCH_KEY")).get(), empty());
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, CharSequence[]>) client ->
-                client.send(HKEYS3, "NO_SUCH_KEY")).get(), emptyArray());
+        assertThat(RedisClient.send(clientFuture, HKEYS, "NO_SUCH_KEY").get(), empty());
+        assertThat(RedisClient.send(clientFuture, HKEYS2, "NO_SUCH_KEY").get(), empty());
+        assertThat(RedisClient.send(clientFuture, HKEYS3, "NO_SUCH_KEY").get(), emptyArray());
     }
 
     @Test
@@ -141,12 +127,9 @@ public class RedisClientTest {
         String field = "FIELD_1";
         long a = 123L;
         long b = 9876420L;
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, Integer>) client ->
-                client.send(HSET_LONG, key, field, a)).get(), equalTo(1));
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, Long>) client ->
-                client.send(HINCRBY, key, field, b)).get(), equalTo(a + b));
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, Long>) client ->
-                client.send(HGET_LONG, key, field)).get(), equalTo(a + b));
+        assertThat(RedisClient.send(clientFuture, HSET_LONG, key, field, a).get(), equalTo(1));
+        assertThat(RedisClient.send(clientFuture, HINCRBY, key, field, b).get(), equalTo(a + b));
+        assertThat(RedisClient.send(clientFuture, HGET_LONG, key, field).get(), equalTo(a + b));
     }
 
     @Test
@@ -154,10 +137,8 @@ public class RedisClientTest {
         String key = "H_KEY_1";
         String field = "FIELD_1";
         byte[] val = {'1', '2', '3'};
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, Integer>) client ->
-                client.send(HSET_BYTES, key, field, val)).get(), equalTo(1));
-        assertArrayEquals(Futures.transform(clientFuture, (AsyncFunction<RedisClient, byte[]>) client ->
-                client.send(HGET_BYTES, key, field)).get(), val);
+        assertThat(RedisClient.send(clientFuture, HSET_BYTES, key, field, val).get(), equalTo(1));
+        assertArrayEquals(RedisClient.send(clientFuture, HGET_BYTES, key, field).get(), val);
     }
 
     @SuppressWarnings({"unchecked", "varargs"})
@@ -168,18 +149,12 @@ public class RedisClientTest {
         String val1 = "VAL_1";
         String field2 = "FIELD_2";
         String val2 = "VAL_2";
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, Integer>) client ->
-                client.send(HSET, key, field1, val1)).get(), equalTo(1));
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, Integer>) client ->
-                client.send(HSET, key, field2, val2)).get(), equalTo(1));
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, Integer>) client ->
-                client.send(HLEN, key)).get(), equalTo(2));
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, CharSequence>) client ->
-                client.send(HGET, key, field1)).get(), hasSameContentAs(val1));
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, CharSequence>) client ->
-                client.send(HGET, key, field2)).get(), hasSameContentAs(val2));
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, CharSequence>) client ->
-                client.send(HGET, key, "NO_SUCH_FIELD")).get(), nullValue());
+        assertThat(RedisClient.send(clientFuture, HSET, key, field1, val1).get(), equalTo(1));
+        assertThat(RedisClient.send(clientFuture, HSET, key, field2, val2).get(), equalTo(1));
+        assertThat(RedisClient.send(clientFuture, HLEN, key).get(), equalTo(2));
+        assertThat(RedisClient.send(clientFuture, HGET, key, field1).get(), hasSameContentAs(val1));
+        assertThat(RedisClient.send(clientFuture, HGET, key, field2).get(), hasSameContentAs(val2));
+        assertThat(RedisClient.send(clientFuture, HGET, key, "NO_SUCH_FIELD").get(), nullValue());
     }
 
     @SuppressWarnings({"unchecked", "varargs"})
@@ -190,22 +165,16 @@ public class RedisClientTest {
         String val1 = "VAL_1";
         String field2 = "FIELD_2";
         String val2 = "VAL_2";
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, Map<String, CharSequence>>) client ->
-                client.send(HGETALL, key)).get().entrySet(), empty());
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, CharSequence>) client ->
-                client.send(HMSET, key, ImmutableMap.of(field1, val1, field2, val2))).get(), hasSameContentAs("OK"));
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, List<CharSequence>>) client ->
-                        client.send(HMGET, key, field1, field2, "NO_SUCH_FIELD")).get(),
+        assertThat(RedisClient.send(clientFuture, HGETALL, key).get().entrySet(), empty());
+        assertThat(RedisClient.send(clientFuture, HMSET, key, ImmutableMap.of(field1, val1, field2, val2)).get(),
+                hasSameContentAs("OK"));
+        assertThat(RedisClient.send(clientFuture, HMGET, key, field1, field2, "NO_SUCH_FIELD").get(),
                 contains(hasSameContentAs(val1), hasSameContentAs(val2), nullValue()));
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, List<CharSequence>>) client ->
-                        client.send(HMGET2, key, Arrays.asList(field1, field2, "NO_SUCH_FIELD"))).get(),
+        assertThat(RedisClient.send(clientFuture, HMGET2, key, Arrays.asList(field1, field2, "NO_SUCH_FIELD")).get(),
                 contains(hasSameContentAs(val1), hasSameContentAs(val2), nullValue()));
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, Map<String, CharSequence>>) client ->
-                        client.send(HGETALL, key)).get(),
+        assertThat(RedisClient.send(clientFuture, HGETALL, key).get(),
                 allOf(hasEntry(equalTo(field1), hasSameContentAs(val1)), hasEntry(equalTo(field2), hasSameContentAs(val2))));
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, Integer>) client ->
-                client.send(HDEL, key, field1, field2, "NO_SUCH_FIELD")).get(), equalTo(2));
-        assertThat(Futures.transform(clientFuture, (AsyncFunction<RedisClient, Map<String, CharSequence>>) client ->
-                client.send(HGETALL, key)).get().entrySet(), empty());
+        assertThat(RedisClient.send(clientFuture, HDEL, key, field1, field2, "NO_SUCH_FIELD").get(), equalTo(2));
+        assertThat(RedisClient.send(clientFuture, HGETALL, key).get().entrySet(), empty());
     }
 }
