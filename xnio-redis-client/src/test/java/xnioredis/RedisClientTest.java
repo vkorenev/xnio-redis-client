@@ -100,6 +100,14 @@ public class RedisClientTest {
     }
 
     @Test
+    public void canSendPairOfCommands() throws Exception {
+        assertThat(RedisClient.send(clientFuture,
+                        new CommandPair<>(PING, PING, (str1, str2) ->
+                                new StringBuilder(str1.length() + str2.length()).append(str1).append(str2))).get(),
+                hasSameContentAs("PONGPONG"));
+    }
+
+    @Test
     public void hlenNoKey() throws Exception {
         assertThat(RedisClient.send(clientFuture, HLEN, "NO_SUCH_KEY").get(), equalTo(0));
     }
