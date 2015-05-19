@@ -21,7 +21,7 @@ public class ClientFactory implements AutoCloseable {
         worker = xnio.createWorker(OptionMap.EMPTY);
     }
 
-    ListenableFuture<RedisClient> connect(InetSocketAddress address) {
+    public ListenableFuture<RedisClient> connect(InetSocketAddress address) {
         IoFuture<StreamConnection> streamConnectionIoFuture = worker.openStreamConnection(address, null, OptionMap.EMPTY);
         return Futures.transform(new IoFutureAdapter<>(streamConnectionIoFuture), (Function<StreamConnection, RedisClient>) XnioRedisClient::new);
     }
