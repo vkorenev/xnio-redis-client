@@ -21,7 +21,7 @@ public class SuccessOrFailureParser<T> implements ReplyParser<T> {
             } else if (b == '-') {
                 return errorParser.parseReply(buffer, visitor);
             } else {
-                throw new IllegalStateException('\'' + marker + "' is expected but '" + (char) b + "' was found");
+                throw new IllegalStateException("'" + marker + "' is expected but '" + (char) b + "' was found");
             }
         } else {
             return visitor.partialReply(this);
