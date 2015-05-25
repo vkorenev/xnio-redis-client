@@ -58,7 +58,7 @@ public class Commands {
     public static final Command1<CharSequence, Integer> HLEN = hlen(strArg(), integerReply());
     public static final Command2<CharSequence, CharSequence[], List<CharSequence>> HMGET = hmget(strArg(), arrayArg(strArg()), arrayReply(collection(ArrayList::new), charSequence(UTF_8)));
     public static final Command2<CharSequence, Collection<? extends CharSequence>, List<CharSequence>> HMGET2 = hmget(strArg(), collArg(strArg()), arrayReply(collection(ArrayList::new), charSequence(UTF_8)));
-    public static final Command2<CharSequence, Map<String, CharSequence>, CharSequence> HMSET = hmset(strArg(), mapArg(strArg(), strArg()), simpleStringReply());
+    public static final Command2<CharSequence, Map<String, ? extends CharSequence>, CharSequence> HMSET = hmset(strArg(), mapArg(strArg(), strArg()), simpleStringReply());
     public static final Command3<CharSequence, CharSequence, CharSequence, Integer> HSET = hset(strArg(), strArg(), strArg(), integerReply());
     public static final Command3<CharSequence, CharSequence, byte[], Integer> HSET_BYTES = hset(strArg(), strArg(), bytesArg(), integerReply());
     public static final Command3<CharSequence, CharSequence, Long, Integer> HSET_LONG = hset(strArg(), strArg(), longArg(), integerReply());
