@@ -1,5 +1,6 @@
 package xnioredis;
 
+import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -18,6 +19,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharsetEncoder;
+import java.util.Arrays;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -57,7 +59,23 @@ class XnioRedisClient extends RedisClient {
 
     private ReplyDecoder decoder() {
         if (currentDecoder == null) {
-            currentDecoder = queue.remove();
+            currentDecoder = queue.poll();
+            if (currentDecoder == null) {
+                currentDecoder = new ReplyDecoder() {
+                    @Override
+                    public void parse(ByteBuffer buffer) throws IOException {
+                        int len = buffer.remaining();
+                        byte[] bytes = new byte[len];
+                        buffer.get(bytes);
+                        throw new IllegalStateException("Unexpected input: " + Arrays.toString(bytes));
+                    }
+
+                    @Override
+                    public void fail(Exception e) {
+                        throw Throwables.propagate(e);
+                    }
+                };
+            }
         }
         return currentDecoder;
     }
