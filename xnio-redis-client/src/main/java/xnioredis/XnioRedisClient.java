@@ -134,8 +134,17 @@ class XnioRedisClient extends RedisClient {
     }
 
     @Override
-    public void flush() throws IOException {
-        outChannel.flush();
+    public ListenableFuture<Void> flush() {
+        SettableFuture<Void> future = SettableFuture.create();
+        executorService.execute(() -> {
+            try {
+                outChannel.flush();
+                future.set(null);
+            } catch (IOException e) {
+                future.setException(e);
+            }
+        });
+        return future;
     }
 
     @Override

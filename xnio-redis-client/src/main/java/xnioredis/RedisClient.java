@@ -7,9 +7,7 @@ import xnioredis.commands.Command1;
 import xnioredis.commands.Command2;
 import xnioredis.commands.Command3;
 
-import java.io.Flushable;
-
-public abstract class RedisClient implements AutoCloseable, Flushable {
+public abstract class RedisClient implements AutoCloseable {
     public final <R> ListenableFuture<R> send(Command<R> command) {
         return send(command, true);
     }
@@ -139,6 +137,8 @@ public abstract class RedisClient implements AutoCloseable, Flushable {
         return Futures.transform(clientFuture, (AsyncFunction<RedisClient, R>) client ->
                 client.sendNoFlush(command, arg1, arg2));
     }
+
+    public abstract ListenableFuture<Void> flush();
 
     @Override
     public abstract void close();
