@@ -27,6 +27,11 @@ public abstract class RedisClient implements AutoCloseable, Flushable {
     }
 
     @SafeVarargs
+    public final <E, R> ListenableFuture<R> send(Command1<E[], R> command, E... arg1) {
+        return send(command.apply(arg1));
+    }
+
+    @SafeVarargs
     public final <T, E, R> ListenableFuture<R> send(Command2<T, E[], R> command, T arg1, E... arg2) {
         return send(command.apply(arg1, arg2));
     }
@@ -55,6 +60,13 @@ public abstract class RedisClient implements AutoCloseable, Flushable {
             ListenableFuture<RedisClient> clientFuture, Command3<T1, T2, T3, R> command, T1 arg1, T2 arg2, T3 arg3) {
         return Futures.transform(clientFuture, (AsyncFunction<RedisClient, R>) client ->
                 client.send(command, arg1, arg2, arg3));
+    }
+
+    @SafeVarargs
+    public static <E, R> ListenableFuture<R> send(
+            ListenableFuture<RedisClient> clientFuture, Command1<E[], R> command, E... arg1) {
+        return Futures.transform(clientFuture, (AsyncFunction<RedisClient, R>) client ->
+                client.send(command, arg1));
     }
 
     @SafeVarargs

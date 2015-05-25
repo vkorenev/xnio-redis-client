@@ -16,8 +16,10 @@ import java.nio.charset.CharsetEncoder;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
 public class Commands {
+    private static final byte[] DEL = bytes("DEL");
     private static final byte[] FLUSHALL = bytes("FLUSHALL");
     private static final byte[] FLUSHDB = bytes("FLUSHDB");
+    private static final byte[] GET = bytes("GET");
     private static final byte[] HDEL = bytes("HDEL");
     private static final byte[] HGET = bytes("HGET");
     private static final byte[] HGETALL = bytes("HGETALL");
@@ -27,7 +29,20 @@ public class Commands {
     private static final byte[] HMGET = bytes("HMGET");
     private static final byte[] HMSET = bytes("HMSET");
     private static final byte[] HSET = bytes("HSET");
+    private static final byte[] SADD = bytes("SADD");
+    private static final byte[] SET = bytes("SET");
+    private static final byte[] SETNX = bytes("SETNX");
+    private static final byte[] SMEMBERS = bytes("SMEMBERS");
     private static final byte[] PING = bytes("PING");
+
+    public static <K, R> Command1<K, R> del(
+            MultiEncoder<? super K> keysEncoder, ReplyParser<? extends R> replyParser) {
+        return (keys) -> define(cb -> {
+            cb.array(1 + keysEncoder.size(keys));
+            cb.bulkString(DEL);
+            keysEncoder.write(cb, keys);
+        }, replyParser);
+    }
 
     public static <R> Command<R> flushall(ReplyParser<? extends R> replyParser) {
         return define(cb -> {
@@ -40,6 +55,15 @@ public class Commands {
         return define(cb -> {
             cb.array(1);
             cb.bulkString(FLUSHDB);
+        }, replyParser);
+    }
+
+    public static <K, R> Command1<K, R> get(
+            Encoder<? super K> keyEncoder, ReplyParser<? extends R> replyParser) {
+        return key -> define(cb -> {
+            cb.array(2);
+            cb.bulkString(GET);
+            keyEncoder.write(cb, key);
         }, replyParser);
     }
 
@@ -129,6 +153,45 @@ public class Commands {
             keyEncoder.write(cb, key);
             fieldEncoder.write(cb, field);
             valueEncoder.write(cb, value);
+        }, replyParser);
+    }
+
+    public static <K, V, R> Command2<K, V, R> sadd(
+            Encoder<? super K> keyEncoder, MultiEncoder<? super V> valuesEncoder, ReplyParser<? extends R> replyParser) {
+        return (key, values) -> define(cb -> {
+            cb.array(2 + valuesEncoder.size(values));
+            cb.bulkString(SADD);
+            keyEncoder.write(cb, key);
+            valuesEncoder.write(cb, values);
+        }, replyParser);
+    }
+
+    public static <K, V, R> Command2<K, V, R> set(
+            Encoder<? super K> keyEncoder, Encoder<? super V> valueEncoder, ReplyParser<? extends R> replyParser) {
+        return (key, value) -> define(cb -> {
+            cb.array(3);
+            cb.bulkString(SET);
+            keyEncoder.write(cb, key);
+            valueEncoder.write(cb, value);
+        }, replyParser);
+    }
+
+    public static <K, V, R> Command2<K, V, R> setnx(
+            Encoder<? super K> keyEncoder, Encoder<? super V> valueEncoder, ReplyParser<? extends R> replyParser) {
+        return (key, value) -> define(cb -> {
+            cb.array(3);
+            cb.bulkString(SETNX);
+            keyEncoder.write(cb, key);
+            valueEncoder.write(cb, value);
+        }, replyParser);
+    }
+
+    public static <K, R> Command1<K, R> smembers(
+            Encoder<? super K> keyEncoder, ReplyParser<? extends R> replyParser) {
+        return key -> define(cb -> {
+            cb.array(2);
+            cb.bulkString(SMEMBERS);
+            keyEncoder.write(cb, key);
         }, replyParser);
     }
 

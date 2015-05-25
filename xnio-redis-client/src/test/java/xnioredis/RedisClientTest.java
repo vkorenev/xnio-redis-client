@@ -13,6 +13,7 @@ import java.util.Arrays;
 
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.emptyArray;
 import static org.hamcrest.Matchers.equalTo;
@@ -20,7 +21,9 @@ import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertThat;
+import static xnioredis.Commands.DEL;
 import static xnioredis.Commands.FLUSHDB;
+import static xnioredis.Commands.GET;
 import static xnioredis.Commands.HDEL;
 import static xnioredis.Commands.HGET;
 import static xnioredis.Commands.HGETALL;
@@ -38,6 +41,10 @@ import static xnioredis.Commands.HSET;
 import static xnioredis.Commands.HSET_BYTES;
 import static xnioredis.Commands.HSET_LONG;
 import static xnioredis.Commands.PING;
+import static xnioredis.Commands.SADD;
+import static xnioredis.Commands.SETNX;
+import static xnioredis.Commands.SET_BYTES;
+import static xnioredis.Commands.SMEMBERS;
 import static xnioredis.hamcrest.HasSameContentAs.hasSameContentAs;
 
 public class RedisClientTest {
@@ -149,6 +156,39 @@ public class RedisClientTest {
         assertArrayEquals(RedisClient.send(clientFuture, HGET_BYTES, key, field).get(), val);
     }
 
+    @Test
+    public void getSetBytes() throws Exception {
+        String key = "KEY_1";
+        byte[] val1 = {'1', '2', '3'};
+        byte[] val2 = {'4', '5', '6'};
+        assertThat(RedisClient.send(clientFuture, GET, key).get(), nullValue());
+        assertThat(RedisClient.send(clientFuture, SET_BYTES, key, val1).get(), hasSameContentAs("OK"));
+        assertThat(RedisClient.send(clientFuture, SET_BYTES, key, val2).get(), hasSameContentAs("OK"));
+        assertArrayEquals(RedisClient.send(clientFuture, GET, key).get(), val2);
+    }
+
+    @Test
+    public void del() throws Exception {
+        String key1 = "KEY_1";
+        String key2 = "KEY_2";
+        byte[] val1 = {'1', '2', '3'};
+        byte[] val2 = {'4', '5', '6'};
+        assertThat(RedisClient.send(clientFuture, SET_BYTES, key1, val1).get(), hasSameContentAs("OK"));
+        assertThat(RedisClient.send(clientFuture, SET_BYTES, key2, val2).get(), hasSameContentAs("OK"));
+        assertThat(RedisClient.send(clientFuture, DEL, key1, key2).get(), equalTo(2));
+    }
+
+    @Test
+    public void getSetnxBytes() throws Exception {
+        String key = "KEY_1";
+        byte[] val1 = {'1', '2', '3'};
+        byte[] val2 = {'4', '5', '6'};
+        assertThat(RedisClient.send(clientFuture, GET, key).get(), nullValue());
+        assertThat(RedisClient.send(clientFuture, SETNX, key, val1).get(), equalTo(1));
+        assertThat(RedisClient.send(clientFuture, SETNX, key, val2).get(), equalTo(0));
+        assertArrayEquals(RedisClient.send(clientFuture, GET, key).get(), val1);
+    }
+
     @SuppressWarnings({"unchecked", "varargs"})
     @Test
     public void hash() throws Exception {
@@ -184,5 +224,14 @@ public class RedisClientTest {
                 allOf(hasEntry(equalTo(field1), hasSameContentAs(val1)), hasEntry(equalTo(field2), hasSameContentAs(val2))));
         assertThat(RedisClient.send(clientFuture, HDEL, key, field1, field2, "NO_SUCH_FIELD").get(), equalTo(2));
         assertThat(RedisClient.send(clientFuture, HGETALL, key).get().entrySet(), empty());
+    }
+
+    @Test
+    public void set() throws Exception {
+        String key = "S_KEY_1";
+        long val1 = 10;
+        long val2 = 20;
+        assertThat(RedisClient.send(clientFuture, SADD, key, Arrays.asList(val1, val2)).get(), equalTo(2));
+        assertThat(RedisClient.send(clientFuture, SMEMBERS, key).get(), containsInAnyOrder(val1, val2));
     }
 }
