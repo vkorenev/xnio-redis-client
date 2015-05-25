@@ -17,6 +17,7 @@ import static java.nio.charset.StandardCharsets.US_ASCII;
 
 public class Commands {
     private static final byte[] DEL = bytes("DEL");
+    private static final byte[] ECHO = bytes("ECHO");
     private static final byte[] FLUSHALL = bytes("FLUSHALL");
     private static final byte[] FLUSHDB = bytes("FLUSHDB");
     private static final byte[] GET = bytes("GET");
@@ -41,6 +42,15 @@ public class Commands {
             cb.array(1 + keysEncoder.size(keys));
             cb.bulkString(DEL);
             keysEncoder.write(cb, keys);
+        }, replyParser);
+    }
+
+    public static <K, R> Command1<K, R> echo(
+            Encoder<? super K> messageEncoder, ReplyParser<? extends R> replyParser) {
+        return key -> define(cb -> {
+            cb.array(2);
+            cb.bulkString(ECHO);
+            messageEncoder.write(cb, key);
         }, replyParser);
     }
 

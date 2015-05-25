@@ -22,6 +22,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertThat;
 import static xnioredis.Commands.DEL;
+import static xnioredis.Commands.ECHO;
 import static xnioredis.Commands.FLUSHDB;
 import static xnioredis.Commands.GET;
 import static xnioredis.Commands.HDEL;
@@ -112,6 +113,12 @@ public class RedisClientTest {
                         new CommandPair<>(PING, PING, (str1, str2) ->
                                 new StringBuilder(str1.length() + str2.length()).append(str1).append(str2))).get(),
                 hasSameContentAs("PONGPONG"));
+    }
+
+    @Test
+    public void echo() throws Exception {
+        String message = "message";
+        assertThat(RedisClient.send(clientFuture, ECHO, message).get(), hasSameContentAs(message));
     }
 
     @Test

@@ -13,6 +13,7 @@ import java.util.Set;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static xnioredis.commands.Commands.del;
+import static xnioredis.commands.Commands.echo;
 import static xnioredis.commands.Commands.flushall;
 import static xnioredis.commands.Commands.flushdb;
 import static xnioredis.commands.Commands.get;
@@ -53,6 +54,7 @@ import static xnioredis.encoder.Encoders.strArg;
 
 public class Commands {
     public static final Command1<CharSequence[], Integer> DEL = del(arrayArg(strArg()), integerReply());
+    public static final Command1<CharSequence, CharSequence> ECHO = echo(strArg(), bulkStringReply(charSequence(UTF_8)));
     public static final Command<CharSequence> FLUSHALL = flushall(simpleStringReply());
     public static final Command<CharSequence> FLUSHDB = flushdb(simpleStringReply());
     public static final Command1<CharSequence, byte[]> GET = get(strArg(), bulkStringReply(byteArray()));
