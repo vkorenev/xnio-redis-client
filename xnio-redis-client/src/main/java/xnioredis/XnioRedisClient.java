@@ -50,7 +50,7 @@ class XnioRedisClient extends RedisClient {
                     }
                     readBuffer.clear();
                 }
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 decoder().fail(e);
             }
         });
@@ -71,7 +71,7 @@ class XnioRedisClient extends RedisClient {
                     }
 
                     @Override
-                    public void fail(Exception e) {
+                    public void fail(Throwable e) {
                         throw Throwables.propagate(e);
                     }
                 };
@@ -117,7 +117,7 @@ class XnioRedisClient extends RedisClient {
                     }
 
                     @Override
-                    public void fail(Exception e) {
+                    public void fail(Throwable e) {
                         future.setException(e);
                         currentDecoder = null;
                     }
