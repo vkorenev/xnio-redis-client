@@ -44,10 +44,13 @@ class XnioRedisClient extends RedisClient {
             try {
                 while (inChannel.read(readBuffer) > 0) {
                     readBuffer.flip();
-                    while (readBuffer.hasRemaining()) {
-                        decoder().parse(readBuffer);
+                    try {
+                        while (readBuffer.hasRemaining()) {
+                            decoder().parse(readBuffer);
+                        }
+                    } finally {
+                        readBuffer.clear();
                     }
-                    readBuffer.clear();
                 }
             } catch (Throwable e) {
                 decoder().fail(e);
