@@ -2,8 +2,6 @@ package xnioredis;
 
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import org.xnio.BufferAllocator;
 import org.xnio.ByteBufferSlicePool;
@@ -21,6 +19,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.CharsetEncoder;
 import java.util.Arrays;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -28,7 +27,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 class XnioRedisClient extends RedisClient {
     private static final Pool<ByteBuffer> BUFFER_POOL = new ByteBufferSlicePool(BufferAllocator.DIRECT_BYTE_BUFFER_ALLOCATOR, 4096, 4096 * 256);
-    private final ListeningExecutorService executorService = MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor(r -> new Thread(r, "RedisClient Command Sender"));
     private final BlockingQueue<ReplyDecoder> queue = new LinkedBlockingQueue<>();
     private final ByteBuffer readBuffer = ByteBuffer.allocateDirect(4096);
     private final CharsetEncoder charsetEncoder = UTF_8.newEncoder();
