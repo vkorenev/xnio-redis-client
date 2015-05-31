@@ -3,18 +3,23 @@ package xnioredis;
 import com.google.common.base.Function;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import org.xnio.BufferAllocator;
+import org.xnio.ByteBufferSlicePool;
 import org.xnio.IoFuture;
 import org.xnio.OptionMap;
 import org.xnio.Options;
+import org.xnio.Pool;
 import org.xnio.StreamConnection;
 import org.xnio.Xnio;
 import org.xnio.XnioWorker;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 
 
 public class ClientFactory implements AutoCloseable {
+    private final Pool<ByteBuffer> byteBufferPool = new ByteBufferSlicePool(BufferAllocator.DIRECT_BYTE_BUFFER_ALLOCATOR, 4096, 4096 * 256);
     private final XnioWorker worker;
 
     public ClientFactory(int ioThreads) throws IOException {
@@ -24,7 +29,8 @@ public class ClientFactory implements AutoCloseable {
 
     public ListenableFuture<RedisClient> connect(InetSocketAddress address) {
         IoFuture<StreamConnection> streamConnectionIoFuture = worker.openStreamConnection(address, null, OptionMap.EMPTY);
-        return Futures.transform(new IoFutureAdapter<>(streamConnectionIoFuture), (Function<StreamConnection, RedisClient>) XnioRedisClient::new);
+        return Futures.transform(new IoFutureAdapter<>(streamConnectionIoFuture),
+                (Function<StreamConnection, RedisClient>) connection -> new XnioRedisClient(connection, byteBufferPool));
     }
 
     @Override
