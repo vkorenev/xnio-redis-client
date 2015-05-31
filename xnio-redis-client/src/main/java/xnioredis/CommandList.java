@@ -11,6 +11,7 @@ import java.nio.charset.CharsetEncoder;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class CommandList<T> implements Command<List<T>> {
     private final List<Command<T>> commands;
@@ -20,10 +21,24 @@ public class CommandList<T> implements Command<List<T>> {
     }
 
     @Override
-    public void writeCommand(StreamSinkChannel channel, CharsetEncoder charsetEncoder, Pool<ByteBuffer> bufferPool) throws IOException {
-        for (Command<T> command : commands) {
-            command.writeCommand(channel, charsetEncoder, bufferPool);
-        }
+    public CommandWriter writer() {
+        return new CommandWriter() {
+            private final List<CommandWriter> writers = commands.stream().map(Command::writer).collect(Collectors.toList());
+
+            @Override
+            public boolean write(StreamSinkChannel channel, CharsetEncoder charsetEncoder, Pool<ByteBuffer> bufferPool) throws IOException {
+                Iterator<CommandWriter> iterator = writers.iterator();
+                while (iterator.hasNext()) {
+                    CommandWriter writer = iterator.next();
+                    if (writer.write(channel, charsetEncoder, bufferPool)) {
+                        iterator.remove();
+                    } else {
+                        return false;
+                    }
+                }
+                return true;
+            }
+        };
     }
 
     @Override

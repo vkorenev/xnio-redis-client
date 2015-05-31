@@ -23,9 +23,17 @@ public class CommandPair<T1, T2, R> implements Command<R> {
     }
 
     @Override
-    public void writeCommand(StreamSinkChannel channel, CharsetEncoder charsetEncoder, Pool<ByteBuffer> bufferPool) throws IOException {
-        command1.writeCommand(channel, charsetEncoder, bufferPool);
-        command2.writeCommand(channel, charsetEncoder, bufferPool);
+    public CommandWriter writer() {
+        return new CommandWriter() {
+            private final CommandWriter commandWriter1 = command1.writer();
+            private final CommandWriter commandWriter2 = command2.writer();
+
+            @Override
+            public boolean write(StreamSinkChannel channel, CharsetEncoder charsetEncoder, Pool<ByteBuffer> bufferPool) throws IOException {
+                return commandWriter1.write(channel, charsetEncoder, bufferPool) &&
+                        commandWriter2.write(channel, charsetEncoder, bufferPool);
+            }
+        };
     }
 
     @Override

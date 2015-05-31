@@ -1,11 +1,12 @@
 package xnioredis.commands;
 
 import com.google.common.base.Utf8;
+import org.xnio.Buffers;
 import org.xnio.Pool;
 import org.xnio.Pooled;
-import org.xnio.channels.Channels;
 import org.xnio.channels.StreamSinkChannel;
 import xnioredis.Command;
+import xnioredis.CommandWriter;
 import xnioredis.decoder.parser.ReplyParser;
 import xnioredis.encoder.CommandBuilder;
 import xnioredis.encoder.CommandEncoder;
@@ -228,21 +229,35 @@ public class Commands {
     private static <T> Command<T> define(CommandEncoder encoder, ReplyParser<? extends T> parser) {
         return new Command<T>() {
             @Override
-            public void writeCommand(StreamSinkChannel channel, CharsetEncoder charsetEncoder, Pool<ByteBuffer> bufferPool) throws IOException {
-                List<Pooled<ByteBuffer>> pooledBuffers = new ArrayList<>();
-                try {
-                    CommandBuilderImpl commandBuilder = new CommandBuilderImpl(() -> {
-                        Pooled<ByteBuffer> pooledBuffer = bufferPool.allocate();
-                        pooledBuffers.add(pooledBuffer);
-                        return pooledBuffer.getResource();
-                    }, charsetEncoder);
-                    encoder.encode(commandBuilder);
-                    commandBuilder.finish();
-                    ByteBuffer[] byteBuffers = pooledBuffers.stream().map(Pooled::getResource).toArray(ByteBuffer[]::new);
-                    Channels.writeBlocking(channel, byteBuffers, 0, byteBuffers.length);
-                } finally {
-                    pooledBuffers.forEach(Pooled::free);
-                }
+            public CommandWriter writer() {
+                return new CommandWriter() {
+                    private final List<Pooled<ByteBuffer>> pooledBuffers = new ArrayList<>();
+                    private boolean firstTime = true;
+
+                    @Override
+                    public boolean write(StreamSinkChannel channel, CharsetEncoder charsetEncoder, Pool<ByteBuffer> bufferPool) throws IOException {
+                        if (firstTime) {
+                            CommandBuilderImpl commandBuilder = new CommandBuilderImpl(() -> {
+                                Pooled<ByteBuffer> pooledBuffer = bufferPool.allocate();
+                                pooledBuffers.add(pooledBuffer);
+                                return pooledBuffer.getResource();
+                            }, charsetEncoder);
+                            encoder.encode(commandBuilder);
+                            commandBuilder.finish();
+                            firstTime = false;
+                        }
+                        ByteBuffer[] byteBuffers = pooledBuffers.stream().map(Pooled::getResource).toArray(ByteBuffer[]::new);
+                        while (Buffers.hasRemaining(byteBuffers, 0, byteBuffers.length)) {
+                            long res = channel.write(byteBuffers, 0, byteBuffers.length);
+                            if (res == 0) {
+                                return false;
+                            }
+                        }
+                        pooledBuffers.forEach(Pooled::free);
+                        pooledBuffers.clear();
+                        return true;
+                    }
+                };
             }
 
             @Override

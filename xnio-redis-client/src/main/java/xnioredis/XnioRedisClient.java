@@ -5,10 +5,10 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import org.xnio.BufferAllocator;
 import org.xnio.ByteBufferSlicePool;
+import org.xnio.ChannelListener;
 import org.xnio.IoUtils;
 import org.xnio.Pool;
 import org.xnio.StreamConnection;
-import org.xnio.channels.Channels;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
 import xnioredis.decoder.parser.ReplyParser;
@@ -19,22 +19,21 @@ import java.nio.ByteBuffer;
 import java.nio.charset.CharsetEncoder;
 import java.util.Arrays;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 class XnioRedisClient extends RedisClient {
     private static final Pool<ByteBuffer> BUFFER_POOL = new ByteBufferSlicePool(BufferAllocator.DIRECT_BYTE_BUFFER_ALLOCATOR, 4096, 4096 * 256);
-    private final ExecutorService executorService = Executors.newSingleThreadExecutor(r -> new Thread(r, "RedisClient Command Sender"));
-    private final BlockingQueue<ReplyDecoder> queue = new LinkedBlockingQueue<>();
+    private final BlockingQueue<CommandWriter> writerQueue = new LinkedBlockingQueue<>();
+    private final BlockingQueue<ReplyDecoder> decoderQueue = new LinkedBlockingQueue<>();
     private final ByteBuffer readBuffer = ByteBuffer.allocateDirect(4096);
     private final CharsetEncoder charsetEncoder = UTF_8.newEncoder();
     private final StreamConnection connection;
     private final StreamSinkChannel outChannel;
     private final StreamSourceChannel inChannel;
     private ReplyDecoder currentDecoder;
+    private CommandWriter currentWriter;
 
     public XnioRedisClient(StreamConnection connection) {
         this.connection = connection;
@@ -57,11 +56,29 @@ class XnioRedisClient extends RedisClient {
             }
         });
         this.inChannel.resumeReads();
+        this.outChannel.getWriteSetter().set(new ChannelListener<StreamSinkChannel>() {
+            @Override
+            public void handleEvent(StreamSinkChannel outChannel) {
+                CommandWriter commandWriter;
+                while ((commandWriter = writer()) != null) {
+                    try {
+                        if (commandWriter.write(outChannel, charsetEncoder, BUFFER_POOL)) {
+                            currentWriter = null;
+                        } else {
+                            return;
+                        }
+                    } catch (IOException e) {
+                        throw Throwables.propagate(e);
+                    }
+                }
+                outChannel.suspendWrites();
+            }
+        });
     }
 
     private ReplyDecoder decoder() {
         if (currentDecoder == null) {
-            currentDecoder = queue.poll();
+            currentDecoder = decoderQueue.poll();
             if (currentDecoder == null) {
                 currentDecoder = new ReplyDecoder() {
                     @Override
@@ -82,63 +99,62 @@ class XnioRedisClient extends RedisClient {
         return currentDecoder;
     }
 
+    private CommandWriter writer() {
+        if (currentWriter == null) {
+            currentWriter = writerQueue.poll();
+        }
+        return currentWriter;
+    }
+
     @Override
     public <T> ListenableFuture<T> send(Command<T> command, boolean autoFlush) {
         SettableFuture<T> future = SettableFuture.create();
-        executorService.execute(() -> {
-            try {
-                queue.add(new ReplyDecoder() {
-                    private ReplyParser<? extends T> parser = command.parser();
+        decoderQueue.add(new ReplyDecoder() {
+            private ReplyParser<? extends T> parser = command.parser();
 
+            @Override
+            public void parse(ByteBuffer buffer) throws IOException {
+                parser.parseReply(buffer, new ReplyParser.ReplyVisitor<T, Void>() {
                     @Override
-                    public void parse(ByteBuffer buffer) throws IOException {
-                        parser.parseReply(buffer, new ReplyParser.ReplyVisitor<T, Void>() {
-                            @Override
-                            public Void success(@Nullable T value) {
-                                setReply(value);
-                                return null;
-                            }
-
-                            @Override
-                            public Void failure(CharSequence message) {
-                                fail(new RedisException(message.toString()));
-                                return null;
-                            }
-
-                            @Override
-                            public Void partialReply(ReplyParser<? extends T> partial) {
-                                parser = partial;
-                                return null;
-                            }
-                        });
-                    }
-
-                    private void setReply(@Nullable T reply) {
-                        future.set(reply);
-                        currentDecoder = null;
+                    public Void success(@Nullable T value) {
+                        setReply(value);
+                        return null;
                     }
 
                     @Override
-                    public void fail(Throwable e) {
-                        future.setException(e);
-                        currentDecoder = null;
+                    public Void failure(CharSequence message) {
+                        fail(new RedisException(message.toString()));
+                        return null;
+                    }
+
+                    @Override
+                    public Void partialReply(ReplyParser<? extends T> partial) {
+                        parser = partial;
+                        return null;
                     }
                 });
-                command.writeCommand(outChannel, charsetEncoder, BUFFER_POOL);
-                if (autoFlush) {
-                    Channels.flushBlocking(outChannel);
-                }
-            } catch (IOException e) {
+            }
+
+            private void setReply(@Nullable T reply) {
+                future.set(reply);
+                currentDecoder = null;
+            }
+
+            @Override
+            public void fail(Throwable e) {
                 future.setException(e);
+                currentDecoder = null;
             }
         });
+        writerQueue.add(command.writer());
+        outChannel.resumeWrites();
         return future;
     }
 
     @Override
     public ListenableFuture<Void> flush() {
         SettableFuture<Void> future = SettableFuture.create();
-        executorService.execute(() -> {
+        outChannel.getIoThread().execute(() -> {
             try {
                 outChannel.flush();
                 future.set(null);
@@ -154,6 +170,5 @@ class XnioRedisClient extends RedisClient {
         IoUtils.safeClose(inChannel);
         IoUtils.safeClose(outChannel);
         IoUtils.safeClose(connection);
-        executorService.shutdown();
     }
 }
