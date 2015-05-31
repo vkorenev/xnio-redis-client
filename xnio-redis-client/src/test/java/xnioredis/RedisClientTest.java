@@ -54,7 +54,7 @@ public class RedisClientTest {
 
     @Before
     public void openConnection() throws Exception {
-        factory = new ClientFactory();
+        factory = new ClientFactory(1);
         clientFuture = factory.connect(new InetSocketAddress("localhost", 6379));
         RedisClient.send(clientFuture, FLUSHDB).get();
     }
