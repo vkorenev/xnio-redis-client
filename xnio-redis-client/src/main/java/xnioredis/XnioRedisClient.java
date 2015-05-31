@@ -6,6 +6,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import org.xnio.ChannelListener;
 import org.xnio.IoUtils;
 import org.xnio.Pool;
+import org.xnio.Pooled;
 import org.xnio.StreamConnection;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
@@ -25,7 +26,6 @@ class XnioRedisClient extends RedisClient {
     private final Pool<ByteBuffer> bufferPool;
     private final BlockingQueue<CommandWriter> writerQueue = new LinkedBlockingQueue<>();
     private final BlockingQueue<ReplyDecoder> decoderQueue = new LinkedBlockingQueue<>();
-    private final ByteBuffer readBuffer = ByteBuffer.allocateDirect(4096);
     private final CharsetEncoder charsetEncoder = UTF_8.newEncoder();
     private final StreamConnection connection;
     private final StreamSinkChannel outChannel;
@@ -39,7 +39,8 @@ class XnioRedisClient extends RedisClient {
         this.outChannel = connection.getSinkChannel();
         this.inChannel = connection.getSourceChannel();
         this.inChannel.getReadSetter().set(inChannel -> {
-            try {
+            try (Pooled<ByteBuffer> pooledByteBuffer = bufferPool.allocate()) {
+                ByteBuffer readBuffer = pooledByteBuffer.getResource();
                 while (inChannel.read(readBuffer) > 0) {
                     readBuffer.flip();
                     try {
