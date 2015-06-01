@@ -3,7 +3,6 @@ package xnioredis;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import org.xnio.ChannelListener;
 import org.xnio.IoUtils;
 import org.xnio.Pool;
 import org.xnio.Pooled;
@@ -23,7 +22,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 class XnioRedisClient extends RedisClient {
-    private final Pool<ByteBuffer> bufferPool;
     private final BlockingQueue<CommandWriter> writerQueue = new LinkedBlockingQueue<>();
     private final BlockingQueue<ReplyDecoder> decoderQueue = new LinkedBlockingQueue<>();
     private final CharsetEncoder charsetEncoder = UTF_8.newEncoder();
@@ -35,7 +33,6 @@ class XnioRedisClient extends RedisClient {
 
     public XnioRedisClient(StreamConnection connection, Pool<ByteBuffer> bufferPool) {
         this.connection = connection;
-        this.bufferPool = bufferPool;
         this.outChannel = connection.getSinkChannel();
         this.inChannel = connection.getSourceChannel();
         this.inChannel.getReadSetter().set(inChannel -> {
@@ -56,23 +53,20 @@ class XnioRedisClient extends RedisClient {
             }
         });
         this.inChannel.resumeReads();
-        this.outChannel.getWriteSetter().set(new ChannelListener<StreamSinkChannel>() {
-            @Override
-            public void handleEvent(StreamSinkChannel outChannel) {
-                CommandWriter commandWriter;
-                while ((commandWriter = writer()) != null) {
-                    try {
-                        if (commandWriter.write(outChannel, charsetEncoder, XnioRedisClient.this.bufferPool)) {
-                            currentWriter = null;
-                        } else {
-                            return;
-                        }
-                    } catch (IOException e) {
-                        throw Throwables.propagate(e);
+        this.outChannel.getWriteSetter().set(outChannel -> {
+            CommandWriter commandWriter;
+            while ((commandWriter = writer()) != null) {
+                try {
+                    if (commandWriter.write(outChannel, charsetEncoder, bufferPool)) {
+                        currentWriter = null;
+                    } else {
+                        return;
                     }
+                } catch (IOException e) {
+                    throw Throwables.propagate(e);
                 }
-                outChannel.suspendWrites();
             }
+            outChannel.suspendWrites();
         });
     }
 
