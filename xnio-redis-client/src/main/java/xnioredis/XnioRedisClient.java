@@ -101,7 +101,7 @@ class XnioRedisClient extends RedisClient {
     }
 
     @Override
-    public <T> ListenableFuture<T> send(Command<T> command, boolean autoFlush) {
+    public <T> ListenableFuture<T> send(Command<T> command) {
         SettableFuture<T> future = SettableFuture.create();
         decoderQueue.add(new ReplyDecoder() {
             private ReplyParser<? extends T> parser = command.parser();
@@ -142,20 +142,6 @@ class XnioRedisClient extends RedisClient {
         });
         writerQueue.add(command.writer());
         outChannel.resumeWrites();
-        return future;
-    }
-
-    @Override
-    public ListenableFuture<Void> flush() {
-        SettableFuture<Void> future = SettableFuture.create();
-        outChannel.getIoThread().execute(() -> {
-            try {
-                outChannel.flush();
-                future.set(null);
-            } catch (IOException e) {
-                future.setException(e);
-            }
-        });
         return future;
     }
 

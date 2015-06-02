@@ -1,7 +1,6 @@
 package xnioredis;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.junit.After;
@@ -80,20 +79,6 @@ public class RedisClientTest {
         ListenableFuture<CharSequence> replyFuture1 = RedisClient.send(clientFuture, PING);
         ListenableFuture<CharSequence> replyFuture2 = RedisClient.send(clientFuture, PING);
         ListenableFuture<CharSequence> replyFuture3 = RedisClient.send(clientFuture, PING);
-        assertThat(replyFuture1.get(), hasSameContentAs("PONG"));
-        assertThat(replyFuture2.get(), hasSameContentAs("PONG"));
-        assertThat(replyFuture3.get(), hasSameContentAs("PONG"));
-    }
-
-    @Test
-    public void canFlushManually() throws Exception {
-        ListenableFuture<CharSequence> replyFuture1 = Futures.transform(clientFuture,
-                (AsyncFunction<RedisClient, CharSequence>) client -> client.send(PING, false));
-        ListenableFuture<CharSequence> replyFuture2 = Futures.transform(clientFuture,
-                (AsyncFunction<RedisClient, CharSequence>) client -> client.send(PING, false));
-        ListenableFuture<CharSequence> replyFuture3 = Futures.transform(clientFuture,
-                (AsyncFunction<RedisClient, CharSequence>) client -> client.send(PING, false));
-        clientFuture.get().flush();
         assertThat(replyFuture1.get(), hasSameContentAs("PONG"));
         assertThat(replyFuture2.get(), hasSameContentAs("PONG"));
         assertThat(replyFuture3.get(), hasSameContentAs("PONG"));
