@@ -1,10 +1,6 @@
 package xnioredis.commands;
 
 import com.google.common.base.Utf8;
-import org.xnio.Buffers;
-import org.xnio.Pool;
-import org.xnio.Pooled;
-import org.xnio.channels.StreamSinkChannel;
 import xnioredis.Command;
 import xnioredis.CommandWriter;
 import xnioredis.decoder.parser.ReplyParser;
@@ -19,8 +15,6 @@ import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.function.Supplier;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
@@ -230,33 +224,9 @@ public class Commands {
         return new Command<T>() {
             @Override
             public CommandWriter writer() {
-                return new CommandWriter() {
-                    private final List<Pooled<ByteBuffer>> pooledBuffers = new ArrayList<>();
-                    private boolean firstTime = true;
-
-                    @Override
-                    public boolean write(StreamSinkChannel channel, CharsetEncoder charsetEncoder, Pool<ByteBuffer> bufferPool) throws IOException {
-                        if (firstTime) {
-                            CommandBuilderImpl commandBuilder = new CommandBuilderImpl(() -> {
-                                Pooled<ByteBuffer> pooledBuffer = bufferPool.allocate();
-                                pooledBuffers.add(pooledBuffer);
-                                return pooledBuffer.getResource();
-                            }, charsetEncoder);
-                            encoder.encode(commandBuilder);
-                            commandBuilder.finish();
-                            firstTime = false;
-                        }
-                        ByteBuffer[] byteBuffers = pooledBuffers.stream().map(Pooled::getResource).toArray(ByteBuffer[]::new);
-                        while (Buffers.hasRemaining(byteBuffers, 0, byteBuffers.length)) {
-                            long res = channel.write(byteBuffers, 0, byteBuffers.length);
-                            if (res == 0) {
-                                return false;
-                            }
-                        }
-                        pooledBuffers.forEach(Pooled::free);
-                        pooledBuffers.clear();
-                        return true;
-                    }
+                return (writeBufferSupplier, charsetEncoder) -> {
+                    CommandBuilder commandBuilder = new CommandBuilderImpl(writeBufferSupplier, charsetEncoder);
+                    encoder.encode(commandBuilder);
                 };
             }
 
@@ -268,14 +238,14 @@ public class Commands {
     }
 
     private static class CommandBuilderImpl implements CommandBuilder {
-        private final Supplier<ByteBuffer> bufferSupplier;
+        private final Supplier<ByteBuffer> writeBufferSupplier;
         private final CharsetEncoder charsetEncoder;
         private ByteBuffer buffer;
 
-        public CommandBuilderImpl(Supplier<ByteBuffer> bufferSupplier, CharsetEncoder charsetEncoder) {
-            this.bufferSupplier = bufferSupplier;
+        public CommandBuilderImpl(Supplier<ByteBuffer> writeBufferSupplier, CharsetEncoder charsetEncoder) {
+            this.writeBufferSupplier = writeBufferSupplier;
             this.charsetEncoder = charsetEncoder;
-            this.buffer = this.bufferSupplier.get();
+            this.buffer = this.writeBufferSupplier.get();
         }
 
         @Override
@@ -308,14 +278,9 @@ public class Commands {
             bulkString(src, 0, src.length);
         }
 
-        private void finish() {
-            buffer.flip();
-        }
-
         private void write(byte b) {
             if (!buffer.hasRemaining()) {
-                buffer.flip();
-                buffer = bufferSupplier.get();
+                buffer = writeBufferSupplier.get();
             }
             buffer.put(b);
         }
@@ -335,8 +300,7 @@ public class Commands {
                 if (coderResult.isUnderflow()) {
                     break;
                 } else if (coderResult.isOverflow()) {
-                    buffer.flip();
-                    buffer = bufferSupplier.get();
+                    buffer = writeBufferSupplier.get();
                 } else {
                     coderResult.throwException();
                 }
@@ -352,8 +316,7 @@ public class Commands {
                     break;
                 } else {
                     buffer.put(src, offset, freeSpace);
-                    buffer.flip();
-                    buffer = bufferSupplier.get();
+                    buffer = writeBufferSupplier.get();
                     offset += freeSpace;
                     length -= freeSpace;
                 }

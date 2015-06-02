@@ -1,7 +1,5 @@
 package xnioredis;
 
-import org.xnio.Pool;
-import org.xnio.channels.StreamSinkChannel;
 import xnioredis.decoder.parser.ReplyParser;
 
 import javax.annotation.Nullable;
@@ -9,6 +7,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharsetEncoder;
 import java.util.function.BiFunction;
+import java.util.function.Supplier;
 
 public class CommandPair<T1, T2, R> implements Command<R> {
 
@@ -29,9 +28,9 @@ public class CommandPair<T1, T2, R> implements Command<R> {
             private final CommandWriter commandWriter2 = command2.writer();
 
             @Override
-            public boolean write(StreamSinkChannel channel, CharsetEncoder charsetEncoder, Pool<ByteBuffer> bufferPool) throws IOException {
-                return commandWriter1.write(channel, charsetEncoder, bufferPool) &&
-                        commandWriter2.write(channel, charsetEncoder, bufferPool);
+            public void write(Supplier<ByteBuffer> writeBufferSupplier, CharsetEncoder charsetEncoder) throws IOException {
+                commandWriter1.write(writeBufferSupplier, charsetEncoder);
+                commandWriter2.write(writeBufferSupplier, charsetEncoder);
             }
         };
     }

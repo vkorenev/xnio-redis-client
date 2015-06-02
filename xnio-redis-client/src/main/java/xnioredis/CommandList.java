@@ -1,7 +1,5 @@
 package xnioredis;
 
-import org.xnio.Pool;
-import org.xnio.channels.StreamSinkChannel;
 import xnioredis.decoder.parser.ReplyParser;
 
 import javax.annotation.Nullable;
@@ -11,6 +9,7 @@ import java.nio.charset.CharsetEncoder;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class CommandList<T> implements Command<List<T>> {
@@ -26,17 +25,10 @@ public class CommandList<T> implements Command<List<T>> {
             private final List<CommandWriter> writers = commands.stream().map(Command::writer).collect(Collectors.toList());
 
             @Override
-            public boolean write(StreamSinkChannel channel, CharsetEncoder charsetEncoder, Pool<ByteBuffer> bufferPool) throws IOException {
-                Iterator<CommandWriter> iterator = writers.iterator();
-                while (iterator.hasNext()) {
-                    CommandWriter writer = iterator.next();
-                    if (writer.write(channel, charsetEncoder, bufferPool)) {
-                        iterator.remove();
-                    } else {
-                        return false;
-                    }
+            public void write(Supplier<ByteBuffer> writeBufferSupplier, CharsetEncoder charsetEncoder) throws IOException {
+                for (CommandWriter writer : writers) {
+                    writer.write(writeBufferSupplier, charsetEncoder);
                 }
-                return true;
             }
         };
     }

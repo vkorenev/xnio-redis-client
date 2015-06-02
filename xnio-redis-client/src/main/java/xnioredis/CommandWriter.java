@@ -1,12 +1,10 @@
 package xnioredis;
 
-import org.xnio.Pool;
-import org.xnio.channels.StreamSinkChannel;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharsetEncoder;
+import java.util.function.Supplier;
 
 public interface CommandWriter {
-    boolean write(StreamSinkChannel channel, CharsetEncoder charsetEncoder, Pool<ByteBuffer> bufferPool) throws IOException;
+    void write(Supplier<ByteBuffer> writeBufferSupplier, CharsetEncoder charsetEncoder) throws IOException;
 }

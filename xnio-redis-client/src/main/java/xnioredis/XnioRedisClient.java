@@ -29,7 +29,6 @@ class XnioRedisClient extends RedisClient {
     private final StreamSinkChannel outChannel;
     private final StreamSourceChannel inChannel;
     private ReplyDecoder currentDecoder;
-    private CommandWriter currentWriter;
 
     public XnioRedisClient(StreamConnection connection, Pool<ByteBuffer> bufferPool) {
         this.connection = connection;
@@ -53,18 +52,26 @@ class XnioRedisClient extends RedisClient {
             }
         });
         this.inChannel.resumeReads();
+        ByteBufferBundle byteBufferBundle = new ByteBufferBundle(bufferPool);
         this.outChannel.getWriteSetter().set(outChannel -> {
-            CommandWriter commandWriter;
-            while ((commandWriter = writer()) != null) {
-                try {
-                    if (commandWriter.write(outChannel, charsetEncoder, bufferPool)) {
-                        currentWriter = null;
-                    } else {
-                        return;
+            try {
+                while (!writerQueue.isEmpty() || !byteBufferBundle.isEmpty()) {
+                    CommandWriter commandWriter;
+                    while (byteBufferBundle.allocSize() <= 1 && (commandWriter = writerQueue.poll()) != null) {
+                        commandWriter.write(byteBufferBundle, charsetEncoder);
                     }
-                } catch (IOException e) {
-                    throw Throwables.propagate(e);
+                    byteBufferBundle.startReading();
+                    try {
+                        long bytesWritten = outChannel.write(byteBufferBundle.getReadBuffers());
+                        if (bytesWritten == 0) {
+                            return;
+                        }
+                    } finally {
+                        byteBufferBundle.startWriting();
+                    }
                 }
+            } catch (IOException e) {
+                throw Throwables.propagate(e);
             }
             outChannel.suspendWrites();
         });
@@ -91,13 +98,6 @@ class XnioRedisClient extends RedisClient {
             }
         }
         return currentDecoder;
-    }
-
-    private CommandWriter writer() {
-        if (currentWriter == null) {
-            currentWriter = writerQueue.poll();
-        }
-        return currentWriter;
     }
 
     @Override
