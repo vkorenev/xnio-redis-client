@@ -10,6 +10,7 @@ import org.junit.Test;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -53,7 +54,7 @@ public class RedisClientTest {
 
     @Before
     public void openConnection() throws Exception {
-        factory = new ClientFactory(1);
+        factory = new ClientFactory(UTF_8, 1);
         clientFuture = factory.connect(new InetSocketAddress("localhost", 6379));
         RedisClient.send(clientFuture, FLUSHDB).get();
     }

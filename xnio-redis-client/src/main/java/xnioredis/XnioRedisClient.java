@@ -14,24 +14,24 @@ import xnioredis.decoder.parser.ReplyParser;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.nio.charset.CharsetEncoder;
 import java.util.Arrays;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 class XnioRedisClient extends RedisClient {
     private final BlockingQueue<CommandEncoderDecoder> writerQueue = new LinkedBlockingQueue<>();
     private final BlockingQueue<ReplyDecoder> decoderQueue = new LinkedBlockingQueue<>();
-    private final CharsetEncoder charsetEncoder = UTF_8.newEncoder();
+    private final CharsetEncoder charsetEncoder;
     private final StreamConnection connection;
     private final StreamSinkChannel outChannel;
     private final StreamSourceChannel inChannel;
     private ReplyDecoder currentDecoder;
 
-    public XnioRedisClient(StreamConnection connection, Pool<ByteBuffer> bufferPool) {
+    public XnioRedisClient(StreamConnection connection, Pool<ByteBuffer> bufferPool, Charset charset) {
         this.connection = connection;
+        this.charsetEncoder = charset.newEncoder();
         this.outChannel = connection.getSinkChannel();
         this.inChannel = connection.getSourceChannel();
         this.inChannel.getReadSetter().set(inChannel -> {
