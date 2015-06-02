@@ -22,7 +22,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 class XnioRedisClient extends RedisClient {
-    private final BlockingQueue<CommandWriter> writerQueue = new LinkedBlockingQueue<>();
+    private final BlockingQueue<CommandEncoderDecoder> writerQueue = new LinkedBlockingQueue<>();
     private final BlockingQueue<ReplyDecoder> decoderQueue = new LinkedBlockingQueue<>();
     private final CharsetEncoder charsetEncoder = UTF_8.newEncoder();
     private final StreamConnection connection;
@@ -48,7 +48,10 @@ class XnioRedisClient extends RedisClient {
                     }
                 }
             } catch (Throwable e) {
-                decoder().fail(e);
+                if (currentDecoder != null) {
+                    currentDecoder.fail(e);
+                }
+                decoderQueue.forEach(decoder -> decoder.fail(e));
             }
         });
         this.inChannel.resumeReads();
@@ -56,9 +59,10 @@ class XnioRedisClient extends RedisClient {
         this.outChannel.getWriteSetter().set(outChannel -> {
             try {
                 while (!writerQueue.isEmpty() || !byteBufferBundle.isEmpty()) {
-                    CommandWriter commandWriter;
-                    while (byteBufferBundle.allocSize() <= 1 && (commandWriter = writerQueue.poll()) != null) {
-                        commandWriter.write(byteBufferBundle, charsetEncoder);
+                    CommandEncoderDecoder command;
+                    while (byteBufferBundle.allocSize() <= 1 && (command = writerQueue.poll()) != null) {
+                        decoderQueue.add(command);
+                        command.writer().write(byteBufferBundle, charsetEncoder);
                     }
                     byteBufferBundle.startReading();
                     try {
@@ -71,7 +75,10 @@ class XnioRedisClient extends RedisClient {
                     }
                 }
             } catch (IOException e) {
-                throw Throwables.propagate(e);
+                if (currentDecoder != null) {
+                    currentDecoder.fail(e);
+                }
+                decoderQueue.forEach(decoder -> decoder.fail(e));
             }
             outChannel.suspendWrites();
         });
@@ -103,8 +110,13 @@ class XnioRedisClient extends RedisClient {
     @Override
     public <T> ListenableFuture<T> send(Command<T> command) {
         SettableFuture<T> future = SettableFuture.create();
-        decoderQueue.add(new ReplyDecoder() {
+        writerQueue.add(new CommandEncoderDecoder() {
             private ReplyParser<? extends T> parser = command.parser();
+
+            @Override
+            public CommandWriter writer() {
+                return command.writer();
+            }
 
             @Override
             public void parse(ByteBuffer buffer) throws IOException {
@@ -140,7 +152,6 @@ class XnioRedisClient extends RedisClient {
                 currentDecoder = null;
             }
         });
-        writerQueue.add(command.writer());
         outChannel.resumeWrites();
         return future;
     }
@@ -150,5 +161,15 @@ class XnioRedisClient extends RedisClient {
         IoUtils.safeClose(inChannel);
         IoUtils.safeClose(outChannel);
         IoUtils.safeClose(connection);
+    }
+
+    private interface ReplyDecoder {
+        void parse(ByteBuffer buffer) throws IOException;
+
+        void fail(Throwable e);
+    }
+
+    private interface CommandEncoderDecoder extends ReplyDecoder {
+        CommandWriter writer();
     }
 }
