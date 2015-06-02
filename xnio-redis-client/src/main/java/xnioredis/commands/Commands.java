@@ -1,6 +1,5 @@
 package xnioredis.commands;
 
-import com.google.common.base.Utf8;
 import xnioredis.Command;
 import xnioredis.CommandWriter;
 import xnioredis.decoder.parser.ReplyParser;
@@ -8,14 +7,6 @@ import xnioredis.encoder.CommandBuilder;
 import xnioredis.encoder.CommandEncoder;
 import xnioredis.encoder.Encoder;
 import xnioredis.encoder.MultiEncoder;
-
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.CharsetEncoder;
-import java.nio.charset.CoderResult;
-import java.util.function.Supplier;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
@@ -222,12 +213,14 @@ public class Commands {
 
     private static <T> Command<T> define(CommandEncoder encoder, ReplyParser<? extends T> parser) {
         return new Command<T>() {
+            private final CommandWriter commandWriter = (writeBufferSupplier, charsetEncoder) -> {
+                CommandBuilder commandBuilder = new CommandBuilderImpl(writeBufferSupplier, charsetEncoder);
+                encoder.encode(commandBuilder);
+            };
+
             @Override
             public CommandWriter writer() {
-                return (writeBufferSupplier, charsetEncoder) -> {
-                    CommandBuilder commandBuilder = new CommandBuilderImpl(writeBufferSupplier, charsetEncoder);
-                    encoder.encode(commandBuilder);
-                };
+                return commandWriter;
             }
 
             @Override
@@ -237,90 +230,4 @@ public class Commands {
         };
     }
 
-    private static class CommandBuilderImpl implements CommandBuilder {
-        private final Supplier<ByteBuffer> writeBufferSupplier;
-        private final CharsetEncoder charsetEncoder;
-        private ByteBuffer buffer;
-
-        public CommandBuilderImpl(Supplier<ByteBuffer> writeBufferSupplier, CharsetEncoder charsetEncoder) {
-            this.writeBufferSupplier = writeBufferSupplier;
-            this.charsetEncoder = charsetEncoder;
-            this.buffer = this.writeBufferSupplier.get();
-        }
-
-        @Override
-        public void array(int size) throws IOException {
-            write((byte) '*');
-            write(Integer.toString(size));
-            writeCRLF();
-        }
-
-        @Override
-        public void bulkString(CharSequence s) throws IOException {
-            write((byte) '$');
-            write(Integer.toString(Utf8.encodedLength(s)));
-            writeCRLF();
-            write(s);
-            writeCRLF();
-        }
-
-        @Override
-        public void bulkString(byte[] src, int offset, int length) throws IOException {
-            write((byte) '$');
-            write(Integer.toString(length));
-            writeCRLF();
-            write(src, offset, length);
-            writeCRLF();
-        }
-
-        @Override
-        public void bulkString(byte[] src) throws IOException {
-            bulkString(src, 0, src.length);
-        }
-
-        private void write(byte b) {
-            if (!buffer.hasRemaining()) {
-                buffer = writeBufferSupplier.get();
-            }
-            buffer.put(b);
-        }
-
-        private void writeCRLF() {
-            write((byte) '\r');
-            write((byte) '\n');
-        }
-
-        private void write(CharSequence s) throws CharacterCodingException {
-            CharBuffer in = CharBuffer.wrap(s);
-            while (true) {
-                CoderResult coderResult = in.hasRemaining() ? charsetEncoder.encode(in, buffer, true) : CoderResult.UNDERFLOW;
-                if (coderResult.isUnderflow()) {
-                    coderResult = charsetEncoder.flush(buffer);
-                }
-                if (coderResult.isUnderflow()) {
-                    break;
-                } else if (coderResult.isOverflow()) {
-                    buffer = writeBufferSupplier.get();
-                } else {
-                    coderResult.throwException();
-                }
-            }
-            charsetEncoder.reset();
-        }
-
-        private void write(byte[] src, int offset, int length) {
-            while (true) {
-                int freeSpace = buffer.remaining();
-                if (freeSpace >= length) {
-                    buffer.put(src, offset, length);
-                    break;
-                } else {
-                    buffer.put(src, offset, freeSpace);
-                    buffer = writeBufferSupplier.get();
-                    offset += freeSpace;
-                    length -= freeSpace;
-                }
-            }
-        }
-    }
 }

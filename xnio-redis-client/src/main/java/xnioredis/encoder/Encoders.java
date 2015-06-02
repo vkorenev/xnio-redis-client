@@ -10,7 +10,11 @@ public class Encoders {
     }
 
     public static Encoder<Long> longArg() {
-        return (builder, val) -> builder.bulkString(Long.toString(val));
+        return CommandBuilder::bulkString;
+    }
+
+    public static Encoder<Integer> intArg() {
+        return CommandBuilder::bulkString;
     }
 
     public static Encoder<byte[]> bytesArg() {

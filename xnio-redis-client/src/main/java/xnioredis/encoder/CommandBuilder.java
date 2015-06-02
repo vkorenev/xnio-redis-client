@@ -10,4 +10,8 @@ public interface CommandBuilder {
     void bulkString(byte[] src, int offset, int length) throws IOException;
 
     void bulkString(byte[] src) throws IOException;
+
+    void bulkString(int num) throws IOException;
+
+    void bulkString(long num) throws IOException;
 }
