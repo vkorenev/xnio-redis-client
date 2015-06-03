@@ -1,14 +1,10 @@
 package xnioredis;
 
-import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import org.xnio.IoUtils;
 import org.xnio.Pool;
-import org.xnio.Pooled;
 import org.xnio.StreamConnection;
-import org.xnio.channels.StreamSinkChannel;
-import org.xnio.channels.StreamSourceChannel;
+import xnioredis.RedisClientConnection.CommandEncoderDecoder;
 import xnioredis.decoder.parser.ReplyParser;
 
 import javax.annotation.Nullable;
@@ -16,98 +12,15 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
-import java.nio.charset.CharsetEncoder;
-import java.util.Arrays;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 class XnioRedisClient extends RedisClient {
     private final BlockingQueue<CommandEncoderDecoder> writerQueue = new LinkedBlockingQueue<>();
-    private final BlockingQueue<ReplyDecoder> decoderQueue = new LinkedBlockingQueue<>();
-    private final CharsetEncoder charsetEncoder;
-    private final CharsetDecoder charsetDecoder;
-    private final StreamConnection connection;
-    private final StreamSinkChannel outChannel;
-    private final StreamSourceChannel inChannel;
-    private ReplyDecoder currentDecoder;
+    private final RedisClientConnection clientConnection;
 
     public XnioRedisClient(StreamConnection connection, Pool<ByteBuffer> bufferPool, Charset charset) {
-        this.connection = connection;
-        this.charsetEncoder = charset.newEncoder();
-        this.charsetDecoder = charset.newDecoder();
-        this.outChannel = connection.getSinkChannel();
-        this.inChannel = connection.getSourceChannel();
-        this.inChannel.getReadSetter().set(inChannel -> {
-            try (Pooled<ByteBuffer> pooledByteBuffer = bufferPool.allocate()) {
-                ByteBuffer readBuffer = pooledByteBuffer.getResource();
-                while (inChannel.read(readBuffer) > 0) {
-                    readBuffer.flip();
-                    try {
-                        while (readBuffer.hasRemaining()) {
-                            decoder().parse(readBuffer);
-                        }
-                    } finally {
-                        readBuffer.clear();
-                    }
-                }
-            } catch (Throwable e) {
-                if (currentDecoder != null) {
-                    currentDecoder.fail(e);
-                }
-                decoderQueue.forEach(decoder -> decoder.fail(e));
-            }
-        });
-        this.inChannel.resumeReads();
-        ByteBufferBundle byteBufferBundle = new ByteBufferBundle(bufferPool);
-        this.outChannel.getWriteSetter().set(outChannel -> {
-            try {
-                while (!writerQueue.isEmpty() || !byteBufferBundle.isEmpty()) {
-                    CommandEncoderDecoder command;
-                    while (byteBufferBundle.allocSize() <= 1 && (command = writerQueue.poll()) != null) {
-                        decoderQueue.add(command);
-                        command.writer().write(byteBufferBundle, charsetEncoder);
-                    }
-                    byteBufferBundle.startReading();
-                    try {
-                        long bytesWritten = outChannel.write(byteBufferBundle.getReadBuffers());
-                        if (bytesWritten == 0) {
-                            return;
-                        }
-                    } finally {
-                        byteBufferBundle.startWriting();
-                    }
-                }
-            } catch (IOException e) {
-                if (currentDecoder != null) {
-                    currentDecoder.fail(e);
-                }
-                decoderQueue.forEach(decoder -> decoder.fail(e));
-            }
-            outChannel.suspendWrites();
-        });
-    }
-
-    private ReplyDecoder decoder() {
-        if (currentDecoder == null) {
-            currentDecoder = decoderQueue.poll();
-            if (currentDecoder == null) {
-                currentDecoder = new ReplyDecoder() {
-                    @Override
-                    public void parse(ByteBuffer buffer) throws IOException {
-                        int len = buffer.remaining();
-                        byte[] bytes = new byte[len];
-                        buffer.get(bytes);
-                        throw new IllegalStateException("Unexpected input: " + Arrays.toString(bytes));
-                    }
-
-                    @Override
-                    public void fail(Throwable e) {
-                        throw Throwables.propagate(e);
-                    }
-                };
-            }
-        }
-        return currentDecoder;
+        clientConnection = new RedisClientConnection(connection, bufferPool, charset, writerQueue);
     }
 
     @Override
@@ -122,57 +35,39 @@ class XnioRedisClient extends RedisClient {
             }
 
             @Override
-            public void parse(ByteBuffer buffer) throws IOException {
-                parser.parseReply(buffer, new ReplyParser.ReplyVisitor<T, Void>() {
+            public boolean parse(ByteBuffer buffer, CharsetDecoder charsetDecoder) throws IOException {
+                return parser.parseReply(buffer, new ReplyParser.ReplyVisitor<T, Boolean>() {
                     @Override
-                    public Void success(@Nullable T value) {
-                        setReply(value);
-                        return null;
+                    public Boolean success(@Nullable T value) {
+                        future.set(value);
+                        return true;
                     }
 
                     @Override
-                    public Void failure(CharSequence message) {
-                        fail(new RedisException(message.toString()));
-                        return null;
+                    public Boolean failure(CharSequence message) {
+                        future.setException(new RedisException(message.toString()));
+                        return true;
                     }
 
                     @Override
-                    public Void partialReply(ReplyParser<? extends T> partial) {
+                    public Boolean partialReply(ReplyParser<? extends T> partial) {
                         parser = partial;
-                        return null;
+                        return false;
                     }
                 }, charsetDecoder);
-            }
-
-            private void setReply(@Nullable T reply) {
-                future.set(reply);
-                currentDecoder = null;
             }
 
             @Override
             public void fail(Throwable e) {
                 future.setException(e);
-                currentDecoder = null;
             }
         });
-        outChannel.resumeWrites();
+        clientConnection.commandAdded();
         return future;
     }
 
     @Override
     public void close() {
-        IoUtils.safeClose(inChannel);
-        IoUtils.safeClose(outChannel);
-        IoUtils.safeClose(connection);
-    }
-
-    private interface ReplyDecoder {
-        void parse(ByteBuffer buffer) throws IOException;
-
-        void fail(Throwable e);
-    }
-
-    private interface CommandEncoderDecoder extends ReplyDecoder {
-        CommandWriter writer();
+        clientConnection.close();
     }
 }
