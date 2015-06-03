@@ -5,13 +5,10 @@ import com.google.common.base.Throwables;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
-import java.nio.charset.Charset;
-import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CoderResult;
-import java.nio.charset.StandardCharsets;
 
 public class BulkStringBuilders {
-    private static final BulkStringBuilderFactory<byte[]> BYTE_ARRAY_BUILDER_FACTORY = length -> {
+    private static final BulkStringBuilderFactory<byte[]> BYTE_ARRAY_BUILDER_FACTORY = (length, charsetDecoder) -> {
         byte[] bytes = new byte[length];
         return new BulkStringBuilderFactory.Builder<byte[]>() {
             int offset = 0;
@@ -34,13 +31,12 @@ public class BulkStringBuilders {
             }
         };
     };
-    private static final BulkStringBuilderFactory<CharSequence> CHAR_SEQUENCE_BUILDER_FACTORY = charSequence(StandardCharsets.US_ASCII);
+    private static final BulkStringBuilderFactory<CharSequence> CHAR_SEQUENCE_BUILDER_FACTORY = charSequence();
     private static final BulkStringBuilderFactory<Integer> INTEGER_BUILDER_FACTORY = CHAR_SEQUENCE_BUILDER_FACTORY.map(Object::toString).map(Integer::valueOf);
     private static final BulkStringBuilderFactory<Long> LONG_BUILDER_FACTORY = CHAR_SEQUENCE_BUILDER_FACTORY.map(Object::toString).map(Long::valueOf);
 
-    public static BulkStringBuilderFactory<CharSequence> charSequence(Charset charset) {
-        return length -> {
-            CharsetDecoder charsetDecoder = charset.newDecoder();
+    public static BulkStringBuilderFactory<CharSequence> charSequence() {
+        return (length, charsetDecoder) -> {
             CharBuffer charBuffer = CharBuffer.allocate((int) (length * charsetDecoder.maxCharsPerByte()));
             return new BulkStringBuilderFactory.Builder<CharSequence>() {
                 @Override
@@ -74,8 +70,8 @@ public class BulkStringBuilders {
         };
     }
 
-    public static BulkStringBuilderFactory<String> string(Charset charset) {
-        return charSequence(charset).map(Object::toString);
+    public static BulkStringBuilderFactory<String> string() {
+        return charSequence().map(Object::toString);
     }
 
     public static BulkStringBuilderFactory<Integer> integer() {

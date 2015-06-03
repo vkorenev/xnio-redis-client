@@ -1,6 +1,7 @@
 package xnioredis.decoder.parser;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.CharsetDecoder;
 
 public class ErrorParser<T> implements ReplyParser<T> {
 
@@ -15,11 +16,12 @@ public class ErrorParser<T> implements ReplyParser<T> {
     }
 
     @Override
-    public <U> U parseReply(ByteBuffer buffer, ReplyVisitor<? super T, U> visitor) {
-        return doParse(buffer, visitor, errorParser);
+    public <U> U parseReply(ByteBuffer buffer, ReplyVisitor<? super T, U> visitor, CharsetDecoder charsetDecoder) {
+        return doParse(buffer, visitor, errorParser, charsetDecoder);
     }
 
-    private <U> U doParse(ByteBuffer buffer, ReplyVisitor<? super T, U> visitor, Parser<? extends CharSequence> errorParser) {
+    private <U> U doParse(ByteBuffer buffer, ReplyVisitor<? super T, U> visitor,
+            Parser<? extends CharSequence> errorParser, CharsetDecoder charsetDecoder) {
         Parser.Visitor<CharSequence, U> visitor1 = new Parser.Visitor<CharSequence, U>() {
             @Override
             public U success(CharSequence message) {
@@ -31,6 +33,6 @@ public class ErrorParser<T> implements ReplyParser<T> {
                 return visitor.partialReply(new ErrorParser<T>(partial));
             }
         };
-        return errorParser.parse(buffer, visitor1);
+        return errorParser.parse(buffer, visitor1, charsetDecoder);
     }
 }

@@ -15,6 +15,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CharsetEncoder;
 import java.util.Arrays;
 import java.util.concurrent.BlockingQueue;
@@ -24,6 +25,7 @@ class XnioRedisClient extends RedisClient {
     private final BlockingQueue<CommandEncoderDecoder> writerQueue = new LinkedBlockingQueue<>();
     private final BlockingQueue<ReplyDecoder> decoderQueue = new LinkedBlockingQueue<>();
     private final CharsetEncoder charsetEncoder;
+    private final CharsetDecoder charsetDecoder;
     private final StreamConnection connection;
     private final StreamSinkChannel outChannel;
     private final StreamSourceChannel inChannel;
@@ -32,6 +34,7 @@ class XnioRedisClient extends RedisClient {
     public XnioRedisClient(StreamConnection connection, Pool<ByteBuffer> bufferPool, Charset charset) {
         this.connection = connection;
         this.charsetEncoder = charset.newEncoder();
+        this.charsetDecoder = charset.newDecoder();
         this.outChannel = connection.getSinkChannel();
         this.inChannel = connection.getSourceChannel();
         this.inChannel.getReadSetter().set(inChannel -> {
@@ -138,7 +141,7 @@ class XnioRedisClient extends RedisClient {
                         parser = partial;
                         return null;
                     }
-                });
+                }, charsetDecoder);
             }
 
             private void setReply(@Nullable T reply) {

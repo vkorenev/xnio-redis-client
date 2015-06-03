@@ -5,6 +5,7 @@ import xnioredis.decoder.parser.ReplyParser;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CharsetEncoder;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
@@ -52,7 +53,7 @@ public class CommandPair<T1, T2, R> implements Command<R> {
         }
 
         @Override
-        public <U> U parseReply(ByteBuffer buffer, ReplyVisitor<? super R, U> visitor) {
+        public <U> U parseReply(ByteBuffer buffer, ReplyVisitor<? super R, U> visitor, CharsetDecoder charsetDecoder) {
             return parser1.parseReply(buffer, new ReplyVisitor<T1, U>() {
                 @Override
                 public U failure(CharSequence message) {
@@ -80,7 +81,8 @@ public class CommandPair<T1, T2, R> implements Command<R> {
                         public U1 partialReply(ReplyParser<? extends T2> partial) {
                             return visitor.partialReply(new ReplyParser<R>() {
                                 @Override
-                                public <U2> U2 parseReply(ByteBuffer buffer, ReplyVisitor<? super R, U2> visitor) {
+                                public <U2> U2 parseReply(ByteBuffer buffer, ReplyVisitor<? super R, U2> visitor,
+                                        CharsetDecoder charsetDecoder) {
                                     return parse2(buffer, visitor, value1, partial);
                                 }
                             });
@@ -90,9 +92,9 @@ public class CommandPair<T1, T2, R> implements Command<R> {
                         public U1 success(@Nullable T2 value2) {
                             return visitor.success(biFunction.apply(value1, value2));
                         }
-                    });
+                    }, charsetDecoder);
                 }
-            });
+            }, charsetDecoder);
         }
     }
 }

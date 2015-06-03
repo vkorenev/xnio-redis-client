@@ -3,6 +3,7 @@ package xnioredis.decoder.parser;
 import xnioredis.decoder.BulkStringBuilderFactory;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.CharsetDecoder;
 
 public class BulkStringParser<T> implements Parser<T> {
     private static final int READING = 0;
@@ -17,8 +18,8 @@ public class BulkStringParser<T> implements Parser<T> {
     }
 
     @Override
-    public <U> U parse(ByteBuffer buffer, Visitor<? super T, U> visitor) {
-        return doParse(buffer, visitor, builderFactory.create(len), len, READING);
+    public <U> U parse(ByteBuffer buffer, Visitor<? super T, U> visitor, CharsetDecoder charsetDecoder) {
+        return doParse(buffer, visitor, builderFactory.create(len, charsetDecoder), len, READING);
     }
 
     private <U> U doParse(ByteBuffer buffer, Visitor<? super T, U> visitor, BulkStringBuilderFactory.Builder<? extends T> builder, int len, int state) {
@@ -55,7 +56,7 @@ public class BulkStringParser<T> implements Parser<T> {
         int state1 = state;
         return visitor.partial(new Parser<T>() {
             @Override
-            public <U1> U1 parse(ByteBuffer buffer, Visitor<? super T, U1> visitor) {
+            public <U1> U1 parse(ByteBuffer buffer, Visitor<? super T, U1> visitor, CharsetDecoder charsetDecoder) {
                 return doParse(buffer, visitor, builder, len1, state1);
             }
         });

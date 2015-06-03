@@ -1,6 +1,7 @@
 package xnioredis.decoder.parser;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.CharsetDecoder;
 
 public class StringParser implements Parser<CharSequence> {
     public static final Parser<CharSequence> INSTANCE = new StringParser();
@@ -11,7 +12,7 @@ public class StringParser implements Parser<CharSequence> {
     }
 
     @Override
-    public <U> U parse(ByteBuffer buffer, Visitor<? super CharSequence, U> visitor) {
+    public <U> U parse(ByteBuffer buffer, Visitor<? super CharSequence, U> visitor, CharsetDecoder charsetDecoder) {
         return doParse(buffer, visitor, new StringBuilder(), READING);
     }
 
@@ -37,7 +38,8 @@ public class StringParser implements Parser<CharSequence> {
         int state1 = state;
         return visitor.partial(new Parser<CharSequence>() {
             @Override
-            public <U1> U1 parse(ByteBuffer buffer, Visitor<? super CharSequence, U1> visitor) {
+            public <U1> U1 parse(ByteBuffer buffer, Visitor<? super CharSequence, U1> visitor,
+                    CharsetDecoder charsetDecoder) {
                 return doParse(buffer, visitor, stringBuilder, state1);
             }
         });

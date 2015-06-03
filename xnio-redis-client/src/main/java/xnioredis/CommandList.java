@@ -5,6 +5,7 @@ import xnioredis.decoder.parser.ReplyParser;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CharsetEncoder;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -40,15 +41,17 @@ public class CommandList<T> implements Command<List<T>> {
             private final Iterator<Command<T>> commandIterator = commands.iterator();
 
             @Override
-            public <U> U parseReply(ByteBuffer buffer, ReplyVisitor<? super List<T>, U> visitor) {
+            public <U> U parseReply(ByteBuffer buffer, ReplyVisitor<? super List<T>, U> visitor,
+                    CharsetDecoder charsetDecoder) {
                 if (commandIterator.hasNext()) {
-                    return doParse(buffer, visitor, commandIterator.next().parser());
+                    return doParse(buffer, visitor, commandIterator.next().parser(), charsetDecoder);
                 } else {
                     return visitor.success(replies);
                 }
             }
 
-            private <U> U doParse(ByteBuffer buffer, ReplyVisitor<? super List<T>, U> visitor, ReplyParser<? extends T> parser) {
+            private <U> U doParse(ByteBuffer buffer, ReplyVisitor<? super List<T>, U> visitor,
+                    ReplyParser<? extends T> parser, CharsetDecoder charsetDecoder) {
                 return parser.parseReply(buffer, new ReplyVisitor<T, U>() {
                     @Override
                     public U failure(CharSequence message) {
@@ -59,8 +62,9 @@ public class CommandList<T> implements Command<List<T>> {
                     public U partialReply(ReplyParser<? extends T> partial) {
                         return visitor.partialReply(new ReplyParser<List<T>>() {
                             @Override
-                            public <U1> U1 parseReply(ByteBuffer buffer, ReplyVisitor<? super List<T>, U1> visitor) {
-                                return doParse(buffer, visitor, partial);
+                            public <U1> U1 parseReply(ByteBuffer buffer, ReplyVisitor<? super List<T>, U1> visitor,
+                                    CharsetDecoder charsetDecoder) {
+                                return doParse(buffer, visitor, partial, charsetDecoder);
                             }
                         });
                     }
@@ -68,9 +72,9 @@ public class CommandList<T> implements Command<List<T>> {
                     @Override
                     public U success(@Nullable T value) {
                         replies.add(value);
-                        return parseReply(buffer, visitor);
+                        return parseReply(buffer, visitor, charsetDecoder);
                     }
-                });
+                }, charsetDecoder);
             }
         };
     }
