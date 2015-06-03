@@ -32,8 +32,10 @@ public class BulkStringBuilders {
         };
     };
     private static final BulkStringBuilderFactory<CharSequence> CHAR_SEQUENCE_BUILDER_FACTORY = charSequence();
-    private static final BulkStringBuilderFactory<Integer> INTEGER_BUILDER_FACTORY = CHAR_SEQUENCE_BUILDER_FACTORY.map(Object::toString).map(Integer::valueOf);
-    private static final BulkStringBuilderFactory<Long> LONG_BUILDER_FACTORY = CHAR_SEQUENCE_BUILDER_FACTORY.map(Object::toString).map(Long::valueOf);
+    private static final BulkStringBuilderFactory<Integer> INTEGER_BUILDER_FACTORY =
+            CHAR_SEQUENCE_BUILDER_FACTORY.map(Object::toString).map(Integer::valueOf);
+    private static final BulkStringBuilderFactory<Long> LONG_BUILDER_FACTORY =
+            CHAR_SEQUENCE_BUILDER_FACTORY.map(Object::toString).map(Long::valueOf);
 
     public static BulkStringBuilderFactory<CharSequence> charSequence() {
         return (length, charsetDecoder) -> {

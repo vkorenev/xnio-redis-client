@@ -16,7 +16,8 @@ public class StringParser implements Parser<CharSequence> {
         return doParse(buffer, visitor, new StringBuilder(), READING);
     }
 
-    private static <U> U doParse(ByteBuffer buffer, Visitor<? super CharSequence, U> visitor, StringBuilder stringBuilder, int state) {
+    private static <U> U doParse(ByteBuffer buffer, Visitor<? super CharSequence, U> visitor,
+            StringBuilder stringBuilder, int state) {
         while (buffer.hasRemaining()) {
             byte b = buffer.get();
             switch (state) {

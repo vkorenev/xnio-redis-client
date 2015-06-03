@@ -19,7 +19,8 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 
 public class ClientFactory implements AutoCloseable {
-    private final Pool<ByteBuffer> byteBufferPool = new ByteBufferSlicePool(BufferAllocator.DIRECT_BYTE_BUFFER_ALLOCATOR, 4096, 4096 * 256);
+    private final Pool<ByteBuffer> byteBufferPool =
+            new ByteBufferSlicePool(BufferAllocator.DIRECT_BYTE_BUFFER_ALLOCATOR, 4096, 4096 * 256);
     private final Charset charset;
     private final XnioWorker worker;
 
@@ -30,9 +31,11 @@ public class ClientFactory implements AutoCloseable {
     }
 
     public ListenableFuture<RedisClient> connect(InetSocketAddress address) {
-        IoFuture<StreamConnection> streamConnectionIoFuture = worker.openStreamConnection(address, null, OptionMap.EMPTY);
+        IoFuture<StreamConnection> streamConnectionIoFuture =
+                worker.openStreamConnection(address, null, OptionMap.EMPTY);
         return Futures.transform(new IoFutureAdapter<>(streamConnectionIoFuture),
-                (Function<StreamConnection, RedisClient>) connection -> new XnioRedisClient(connection, byteBufferPool, charset));
+                (Function<StreamConnection, RedisClient>) connection ->
+                        new XnioRedisClient(connection, byteBufferPool, charset));
     }
 
     @Override

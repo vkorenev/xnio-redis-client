@@ -214,7 +214,8 @@ public class RedisClientTest {
         assertThat(RedisClient.send(clientFuture, HMGET2, key, Arrays.asList(field1, field2, "NO_SUCH_FIELD")).get(),
                 contains(hasSameContentAs(val1), hasSameContentAs(val2), nullValue()));
         assertThat(RedisClient.send(clientFuture, HGETALL, key).get(),
-                allOf(hasEntry(equalTo(field1), hasSameContentAs(val1)), hasEntry(equalTo(field2), hasSameContentAs(val2))));
+                allOf(hasEntry(equalTo(field1), hasSameContentAs(val1)),
+                        hasEntry(equalTo(field2), hasSameContentAs(val2))));
         assertThat(RedisClient.send(clientFuture, HDEL, key, field1, field2, "NO_SUCH_FIELD").get(), equalTo(2));
         assertThat(RedisClient.send(clientFuture, HGETALL, key).get().entrySet(), empty());
     }

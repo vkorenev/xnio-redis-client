@@ -22,7 +22,8 @@ public class BulkStringParser<T> implements Parser<T> {
         return doParse(buffer, visitor, builderFactory.create(len, charsetDecoder), len, READING);
     }
 
-    private <U> U doParse(ByteBuffer buffer, Visitor<? super T, U> visitor, BulkStringBuilderFactory.Builder<? extends T> builder, int len, int state) {
+    private <U> U doParse(ByteBuffer buffer, Visitor<? super T, U> visitor,
+            BulkStringBuilderFactory.Builder<? extends T> builder, int len, int state) {
         while (buffer.hasRemaining()) {
             switch (state) {
                 case READING:

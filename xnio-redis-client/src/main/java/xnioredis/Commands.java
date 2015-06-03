@@ -57,27 +57,47 @@ public class Commands {
     public static final Command<CharSequence> FLUSHALL = flushall(simpleStringReply());
     public static final Command<CharSequence> FLUSHDB = flushdb(simpleStringReply());
     public static final Command1<CharSequence, byte[]> GET = get(strArg(), bulkStringReply(byteArray()));
-    public static final Command2<CharSequence, CharSequence[], Integer> HDEL = hdel(strArg(), arrayArg(strArg()), integerReply());
-    public static final Command2<CharSequence, CharSequence, CharSequence> HGET = hget(strArg(), strArg(), bulkStringReply(charSequence()));
-    public static final Command2<CharSequence, CharSequence, byte[]> HGET_BYTES = hget(strArg(), strArg(), bulkStringReply(byteArray()));
-    public static final Command2<CharSequence, CharSequence, Long> HGET_LONG = hget(strArg(), strArg(), bulkStringReply(_long()));
-    public static final Command1<CharSequence, Map<String, CharSequence>> HGETALL = hgetall(strArg(), mapReply(immutableMap(), string(), charSequence()));
-    public static final Command3<CharSequence, CharSequence, Long, Long> HINCRBY = hincrby(strArg(), strArg(), longArg(), longReply());
-    public static final Command1<CharSequence, List<CharSequence>> HKEYS = hkeys(strArg(), arrayReply(immutableList(), charSequence()));
-    public static final Command1<CharSequence, List<CharSequence>> HKEYS2 = hkeys(strArg(), arrayReply(collection(ArrayList::new), charSequence()));
-    public static final Command1<CharSequence, CharSequence[]> HKEYS3 = hkeys(strArg(), arrayReply(array(CharSequence[]::new), charSequence()));
+    public static final Command2<CharSequence, CharSequence[], Integer> HDEL =
+            hdel(strArg(), arrayArg(strArg()), integerReply());
+    public static final Command2<CharSequence, CharSequence, CharSequence> HGET =
+            hget(strArg(), strArg(), bulkStringReply(charSequence()));
+    public static final Command2<CharSequence, CharSequence, byte[]> HGET_BYTES =
+            hget(strArg(), strArg(), bulkStringReply(byteArray()));
+    public static final Command2<CharSequence, CharSequence, Long> HGET_LONG =
+            hget(strArg(), strArg(), bulkStringReply(_long()));
+    public static final Command1<CharSequence, Map<String, CharSequence>> HGETALL =
+            hgetall(strArg(), mapReply(immutableMap(), string(), charSequence()));
+    public static final Command3<CharSequence, CharSequence, Long, Long> HINCRBY =
+            hincrby(strArg(), strArg(), longArg(), longReply());
+    public static final Command1<CharSequence, List<CharSequence>> HKEYS =
+            hkeys(strArg(), arrayReply(immutableList(), charSequence()));
+    public static final Command1<CharSequence, List<CharSequence>> HKEYS2 =
+            hkeys(strArg(), arrayReply(collection(ArrayList::new), charSequence()));
+    public static final Command1<CharSequence, CharSequence[]> HKEYS3 =
+            hkeys(strArg(), arrayReply(array(CharSequence[]::new), charSequence()));
     public static final Command1<CharSequence, Integer> HLEN = hlen(strArg(), integerReply());
-    public static final Command2<CharSequence, CharSequence[], List<CharSequence>> HMGET = hmget(strArg(), arrayArg(strArg()), arrayReply(collection(ArrayList::new), charSequence()));
-    public static final Command2<CharSequence, Collection<? extends CharSequence>, List<CharSequence>> HMGET2 = hmget(strArg(), collArg(strArg()), arrayReply(collection(ArrayList::new), charSequence()));
-    public static final Command2<CharSequence, Map<String, ? extends CharSequence>, CharSequence> HMSET = hmset(strArg(), mapArg(strArg(), strArg()), simpleStringReply());
-    public static final Command3<CharSequence, CharSequence, CharSequence, Integer> HSET = hset(strArg(), strArg(), strArg(), integerReply());
-    public static final Command3<CharSequence, CharSequence, byte[], Integer> HSET_BYTES = hset(strArg(), strArg(), bytesArg(), integerReply());
-    public static final Command3<CharSequence, CharSequence, Long, Integer> HSET_LONG = hset(strArg(), strArg(), longArg(), integerReply());
-    public static final Command2<CharSequence, Collection<Long>, Integer> SADD = sadd(strArg(), collArg(longArg()), integerReply());
-    public static final Command2<CharSequence, CharSequence, CharSequence> SET = set(strArg(), strArg(), simpleStringReply());
-    public static final Command2<CharSequence, byte[], CharSequence> SET_BYTES = set(strArg(), bytesArg(), simpleStringReply());
-    public static final Command2<CharSequence, Long, CharSequence> SET_LONG = set(strArg(), longArg(), simpleStringReply());
+    public static final Command2<CharSequence, CharSequence[], List<CharSequence>> HMGET =
+            hmget(strArg(), arrayArg(strArg()), arrayReply(collection(ArrayList::new), charSequence()));
+    public static final Command2<CharSequence, Collection<? extends CharSequence>, List<CharSequence>> HMGET2 =
+            hmget(strArg(), collArg(strArg()), arrayReply(collection(ArrayList::new), charSequence()));
+    public static final Command2<CharSequence, Map<String, ? extends CharSequence>, CharSequence> HMSET =
+            hmset(strArg(), mapArg(strArg(), strArg()), simpleStringReply());
+    public static final Command3<CharSequence, CharSequence, CharSequence, Integer> HSET =
+            hset(strArg(), strArg(), strArg(), integerReply());
+    public static final Command3<CharSequence, CharSequence, byte[], Integer> HSET_BYTES =
+            hset(strArg(), strArg(), bytesArg(), integerReply());
+    public static final Command3<CharSequence, CharSequence, Long, Integer> HSET_LONG =
+            hset(strArg(), strArg(), longArg(), integerReply());
+    public static final Command2<CharSequence, Collection<Long>, Integer> SADD =
+            sadd(strArg(), collArg(longArg()), integerReply());
+    public static final Command2<CharSequence, CharSequence, CharSequence> SET =
+            set(strArg(), strArg(), simpleStringReply());
+    public static final Command2<CharSequence, byte[], CharSequence> SET_BYTES =
+            set(strArg(), bytesArg(), simpleStringReply());
+    public static final Command2<CharSequence, Long, CharSequence> SET_LONG =
+            set(strArg(), longArg(), simpleStringReply());
     public static final Command2<CharSequence, byte[], Integer> SETNX = setnx(strArg(), bytesArg(), integerReply());
-    public static final Command1<CharSequence, Set<Long>> SMEMBERS = smembers(strArg(), arrayReply(collection(HashSet::new), _long()));
+    public static final Command1<CharSequence, Set<Long>> SMEMBERS =
+            smembers(strArg(), arrayReply(collection(HashSet::new), _long()));
     public static final Command<CharSequence> PING = ping(simpleStringReply());
 }

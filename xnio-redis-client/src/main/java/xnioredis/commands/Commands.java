@@ -31,8 +31,7 @@ public class Commands {
     private static final byte[] SMEMBERS = bytes("SMEMBERS");
     private static final byte[] PING = bytes("PING");
 
-    public static <K, R> Command1<K, R> del(
-            MultiEncoder<? super K> keysEncoder, ReplyParser<? extends R> replyParser) {
+    public static <K, R> Command1<K, R> del(MultiEncoder<? super K> keysEncoder, ReplyParser<? extends R> replyParser) {
         return (keys) -> define(cb -> {
             cb.array(1 + keysEncoder.size(keys));
             cb.bulkString(DEL);
@@ -40,8 +39,7 @@ public class Commands {
         }, replyParser);
     }
 
-    public static <K, R> Command1<K, R> echo(
-            Encoder<? super K> messageEncoder, ReplyParser<? extends R> replyParser) {
+    public static <K, R> Command1<K, R> echo(Encoder<? super K> messageEncoder, ReplyParser<? extends R> replyParser) {
         return key -> define(cb -> {
             cb.array(2);
             cb.bulkString(ECHO);
@@ -63,8 +61,7 @@ public class Commands {
         }, replyParser);
     }
 
-    public static <K, R> Command1<K, R> get(
-            Encoder<? super K> keyEncoder, ReplyParser<? extends R> replyParser) {
+    public static <K, R> Command1<K, R> get(Encoder<? super K> keyEncoder, ReplyParser<? extends R> replyParser) {
         return key -> define(cb -> {
             cb.array(2);
             cb.bulkString(GET);
@@ -72,8 +69,8 @@ public class Commands {
         }, replyParser);
     }
 
-    public static <K, F, R> Command2<K, F, R> hdel(
-            Encoder<? super K> keyEncoder, MultiEncoder<? super F> fieldsEncoder, ReplyParser<? extends R> replyParser) {
+    public static <K, F, R> Command2<K, F, R> hdel(Encoder<? super K> keyEncoder, MultiEncoder<? super F> fieldsEncoder,
+            ReplyParser<? extends R> replyParser) {
         return (key, fields) -> define(cb -> {
             cb.array(2 + fieldsEncoder.size(fields));
             cb.bulkString(HDEL);
@@ -82,8 +79,8 @@ public class Commands {
         }, replyParser);
     }
 
-    public static <K, F, R> Command2<K, F, R> hget(
-            Encoder<? super K> keyEncoder, Encoder<? super F> fieldEncoder, ReplyParser<? extends R> replyParser) {
+    public static <K, F, R> Command2<K, F, R> hget(Encoder<? super K> keyEncoder, Encoder<? super F> fieldEncoder,
+            ReplyParser<? extends R> replyParser) {
         return (key, field) -> define(cb -> {
             cb.array(3);
             cb.bulkString(HGET);
@@ -92,8 +89,7 @@ public class Commands {
         }, replyParser);
     }
 
-    public static <K, R> Command1<K, R> hgetall(
-            Encoder<? super K> keyEncoder, ReplyParser<? extends R> replyParser) {
+    public static <K, R> Command1<K, R> hgetall(Encoder<? super K> keyEncoder, ReplyParser<? extends R> replyParser) {
         return key -> define(cb -> {
             cb.array(2);
             cb.bulkString(HGETALL);
@@ -101,8 +97,7 @@ public class Commands {
         }, replyParser);
     }
 
-    public static <K, R> Command1<K, R> hkeys(
-            Encoder<? super K> keyEncoder, ReplyParser<? extends R> replyParser) {
+    public static <K, R> Command1<K, R> hkeys(Encoder<? super K> keyEncoder, ReplyParser<? extends R> replyParser) {
         return key -> define(cb -> {
             cb.array(2);
             cb.bulkString(HKEYS);
@@ -110,8 +105,9 @@ public class Commands {
         }, replyParser);
     }
 
-    public static <K, F, V, R> Command3<K, F, V, R> hincrby(
-            Encoder<? super K> keyEncoder, Encoder<? super F> fieldEncoder, Encoder<? super V> incrementEncoder, ReplyParser<? extends R> replyParser) {
+    public static <K, F, V, R> Command3<K, F, V, R> hincrby(Encoder<? super K> keyEncoder,
+            Encoder<? super F> fieldEncoder, Encoder<? super V> incrementEncoder,
+            ReplyParser<? extends R> replyParser) {
         return (key, field, increment) -> define(cb -> {
             cb.array(4);
             cb.bulkString(HINCRBY);
@@ -121,8 +117,7 @@ public class Commands {
         }, replyParser);
     }
 
-    public static <K, R> Command1<K, R> hlen(
-            Encoder<? super K> keyEncoder, ReplyParser<? extends R> replyParser) {
+    public static <K, R> Command1<K, R> hlen(Encoder<? super K> keyEncoder, ReplyParser<? extends R> replyParser) {
         return key -> define(cb -> {
             cb.array(2);
             cb.bulkString(HLEN);
@@ -130,8 +125,8 @@ public class Commands {
         }, replyParser);
     }
 
-    public static <K, F, R> Command2<K, F, R> hmget(
-            Encoder<? super K> keyEncoder, MultiEncoder<? super F> fieldsEncoder, ReplyParser<? extends R> replyParser) {
+    public static <K, F, R> Command2<K, F, R> hmget(Encoder<? super K> keyEncoder,
+            MultiEncoder<? super F> fieldsEncoder, ReplyParser<? extends R> replyParser) {
         return (key, fields) -> define(cb -> {
             cb.array(2 + fieldsEncoder.size(fields));
             cb.bulkString(HMGET);
@@ -140,8 +135,8 @@ public class Commands {
         }, replyParser);
     }
 
-    public static <K, F, R> Command2<K, F, R> hmset(
-            Encoder<? super K> keyEncoder, MultiEncoder<? super F> fieldsEncoder, ReplyParser<? extends R> replyParser) {
+    public static <K, F, R> Command2<K, F, R> hmset(Encoder<? super K> keyEncoder,
+            MultiEncoder<? super F> fieldsEncoder, ReplyParser<? extends R> replyParser) {
         return (key, fields) -> define(cb -> {
             cb.array(2 + fieldsEncoder.size(fields));
             cb.bulkString(HMSET);
@@ -150,8 +145,8 @@ public class Commands {
         }, replyParser);
     }
 
-    public static <K, F, V, R> Command3<K, F, V, R> hset(
-            Encoder<? super K> keyEncoder, Encoder<? super F> fieldEncoder, Encoder<? super V> valueEncoder, ReplyParser<? extends R> replyParser) {
+    public static <K, F, V, R> Command3<K, F, V, R> hset(Encoder<? super K> keyEncoder, Encoder<? super F> fieldEncoder,
+            Encoder<? super V> valueEncoder, ReplyParser<? extends R> replyParser) {
         return (key, field, value) -> define(cb -> {
             cb.array(4);
             cb.bulkString(HSET);
@@ -161,8 +156,8 @@ public class Commands {
         }, replyParser);
     }
 
-    public static <K, V, R> Command2<K, V, R> sadd(
-            Encoder<? super K> keyEncoder, MultiEncoder<? super V> valuesEncoder, ReplyParser<? extends R> replyParser) {
+    public static <K, V, R> Command2<K, V, R> sadd(Encoder<? super K> keyEncoder, MultiEncoder<? super V> valuesEncoder,
+            ReplyParser<? extends R> replyParser) {
         return (key, values) -> define(cb -> {
             cb.array(2 + valuesEncoder.size(values));
             cb.bulkString(SADD);
@@ -171,8 +166,8 @@ public class Commands {
         }, replyParser);
     }
 
-    public static <K, V, R> Command2<K, V, R> set(
-            Encoder<? super K> keyEncoder, Encoder<? super V> valueEncoder, ReplyParser<? extends R> replyParser) {
+    public static <K, V, R> Command2<K, V, R> set(Encoder<? super K> keyEncoder, Encoder<? super V> valueEncoder,
+            ReplyParser<? extends R> replyParser) {
         return (key, value) -> define(cb -> {
             cb.array(3);
             cb.bulkString(SET);
@@ -181,8 +176,8 @@ public class Commands {
         }, replyParser);
     }
 
-    public static <K, V, R> Command2<K, V, R> setnx(
-            Encoder<? super K> keyEncoder, Encoder<? super V> valueEncoder, ReplyParser<? extends R> replyParser) {
+    public static <K, V, R> Command2<K, V, R> setnx(Encoder<? super K> keyEncoder, Encoder<? super V> valueEncoder,
+            ReplyParser<? extends R> replyParser) {
         return (key, value) -> define(cb -> {
             cb.array(3);
             cb.bulkString(SETNX);
@@ -191,8 +186,7 @@ public class Commands {
         }, replyParser);
     }
 
-    public static <K, R> Command1<K, R> smembers(
-            Encoder<? super K> keyEncoder, ReplyParser<? extends R> replyParser) {
+    public static <K, R> Command1<K, R> smembers(Encoder<? super K> keyEncoder, ReplyParser<? extends R> replyParser) {
         return key -> define(cb -> {
             cb.array(2);
             cb.bulkString(SMEMBERS);
@@ -229,5 +223,4 @@ public class Commands {
             }
         };
     }
-
 }

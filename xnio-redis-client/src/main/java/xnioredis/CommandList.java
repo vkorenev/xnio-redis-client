@@ -23,10 +23,12 @@ public class CommandList<T> implements Command<List<T>> {
     @Override
     public CommandWriter writer() {
         return new CommandWriter() {
-            private final List<CommandWriter> writers = commands.stream().map(Command::writer).collect(Collectors.toList());
+            private final List<CommandWriter> writers =
+                    commands.stream().map(Command::writer).collect(Collectors.toList());
 
             @Override
-            public void write(Supplier<ByteBuffer> writeBufferSupplier, CharsetEncoder charsetEncoder) throws IOException {
+            public void write(Supplier<ByteBuffer> writeBufferSupplier, CharsetEncoder charsetEncoder)
+                    throws IOException {
                 for (CommandWriter writer : writers) {
                     writer.write(writeBufferSupplier, charsetEncoder);
                 }

@@ -53,7 +53,8 @@ public class Encoders {
         };
     }
 
-    public static <K, V> MultiEncoder<Map<? extends K, ? extends V>> mapArg(Encoder<? super K> keyEncoder, Encoder<? super V> valueEncoder) {
+    public static <K, V> MultiEncoder<Map<? extends K, ? extends V>> mapArg(Encoder<? super K> keyEncoder,
+            Encoder<? super V> valueEncoder) {
         return new MultiEncoder<Map<? extends K, ? extends V>>() {
             @Override
             public int size(Map<? extends K, ? extends V> map) {

@@ -82,7 +82,7 @@ public interface SeqParser<T1, T2> {
         };
     }
 
-    static interface Visitor<T1, T2, R> {
+    interface Visitor<T1, T2, R> {
         R success(@Nullable T1 value1, @Nullable T2 value2);
 
         R partial(SeqParser<? extends T1, ? extends T2> partial);

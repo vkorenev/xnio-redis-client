@@ -29,7 +29,8 @@ public class CommandPair<T1, T2, R> implements Command<R> {
             private final CommandWriter commandWriter2 = command2.writer();
 
             @Override
-            public void write(Supplier<ByteBuffer> writeBufferSupplier, CharsetEncoder charsetEncoder) throws IOException {
+            public void write(Supplier<ByteBuffer> writeBufferSupplier, CharsetEncoder charsetEncoder)
+                    throws IOException {
                 commandWriter1.write(writeBufferSupplier, charsetEncoder);
                 commandWriter2.write(writeBufferSupplier, charsetEncoder);
             }
@@ -46,7 +47,8 @@ public class CommandPair<T1, T2, R> implements Command<R> {
         private final ReplyParser<? extends T2> parser2;
         private final BiFunction<T1, T2, R> biFunction;
 
-        public ReplyParser1(ReplyParser<? extends T1> parser1, ReplyParser<? extends T2> parser2, BiFunction<T1, T2, R> biFunction) {
+        public ReplyParser1(ReplyParser<? extends T1> parser1, ReplyParser<? extends T2> parser2,
+                BiFunction<T1, T2, R> biFunction) {
             this.parser1 = parser1;
             this.parser2 = parser2;
             this.biFunction = biFunction;
@@ -70,7 +72,8 @@ public class CommandPair<T1, T2, R> implements Command<R> {
                     return parse2(buffer, visitor, value1, parser2);
                 }
 
-                private <U1> U1 parse2(ByteBuffer buffer, ReplyVisitor<? super R, U1> visitor, @Nullable T1 value1, ReplyParser<? extends T2> parser2) {
+                private <U1> U1 parse2(ByteBuffer buffer, ReplyVisitor<? super R, U1> visitor, @Nullable T1 value1,
+                        ReplyParser<? extends T2> parser2) {
                     return parser2.parseReply(buffer, new ReplyVisitor<T2, U1>() {
                         @Override
                         public U1 failure(CharSequence message) {

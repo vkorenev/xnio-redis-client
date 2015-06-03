@@ -16,8 +16,8 @@ import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 class CommandBuilderImpl implements CommandBuilder {
-    public static final byte[][] NUM_BYTES = IntStream.range(10, 99).mapToObj(
-            i -> Integer.toString(i).getBytes(US_ASCII)).toArray(byte[][]::new);
+    public static final byte[][] NUM_BYTES =
+            IntStream.range(10, 99).mapToObj(i -> Integer.toString(i).getBytes(US_ASCII)).toArray(byte[][]::new);
     private final Supplier<ByteBuffer> writeBufferSupplier;
     private final CharsetEncoder charsetEncoder;
     private ByteBuffer buffer;
@@ -155,7 +155,8 @@ class CommandBuilderImpl implements CommandBuilder {
         CharBuffer in = CharBuffer.wrap(s);
         try {
             while (true) {
-                CoderResult coderResult = in.hasRemaining() ? charsetEncoder.encode(in, buffer, true) : CoderResult.UNDERFLOW;
+                CoderResult coderResult =
+                        in.hasRemaining() ? charsetEncoder.encode(in, buffer, true) : CoderResult.UNDERFLOW;
                 if (coderResult.isUnderflow()) {
                     coderResult = charsetEncoder.flush(buffer);
                 }
