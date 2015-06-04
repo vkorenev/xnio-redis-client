@@ -10,7 +10,6 @@ import org.xnio.StreamConnection;
 import xnioredis.RedisClientConnection.CommandEncoderDecoder;
 import xnioredis.decoder.parser.ReplyParser;
 
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -66,24 +65,15 @@ class XnioRedisClient extends RedisClient {
 
             @Override
             public boolean parse(ByteBuffer buffer, CharsetDecoder charsetDecoder) throws IOException {
-                return parser.parseReply(buffer, new ReplyParser.ReplyVisitor<T, Boolean>() {
-                    @Override
-                    public Boolean success(@Nullable T value) {
-                        future.set(value);
-                        return true;
-                    }
-
-                    @Override
-                    public Boolean failure(CharSequence message) {
-                        future.setException(new RedisException(message.toString()));
-                        return true;
-                    }
-
-                    @Override
-                    public Boolean partialReply(ReplyParser<? extends T> partial) {
-                        parser = partial;
-                        return false;
-                    }
+                return parser.parseReply(buffer, value -> {
+                    future.set(value);
+                    return true;
+                }, partial -> {
+                    parser = partial;
+                    return false;
+                }, message -> {
+                    future.setException(new RedisException(message.toString()));
+                    return true;
                 }, charsetDecoder);
             }
 

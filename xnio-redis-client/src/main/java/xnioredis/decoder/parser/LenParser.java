@@ -2,6 +2,7 @@ package xnioredis.decoder.parser;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.CharsetDecoder;
+import java.util.function.Function;
 import java.util.function.IntFunction;
 
 public class LenParser<T> implements Parser<T> {
@@ -18,21 +19,15 @@ public class LenParser<T> implements Parser<T> {
     }
 
     @Override
-    public <U> U parse(ByteBuffer buffer, Visitor<? super T, U> visitor, CharsetDecoder charsetDecoder) {
-        return lengthParser.parse(buffer, new LongParser.Visitor<U>() {
-            @Override
-            public U success(long value) {
-                if (value == -1) {
-                    return visitor.success(null);
-                } else {
-                    return bodyParserFactory.apply((int) value).parse(buffer, visitor, charsetDecoder);
-                }
+    public <U> U parse(ByteBuffer buffer, Function<? super T, U> resultHandler,
+            PartialHandler<? super T, U> partialHandler, CharsetDecoder charsetDecoder) {
+        return lengthParser.parse(buffer, value -> {
+            if (value == -1) {
+                return resultHandler.apply(null);
+            } else {
+                return bodyParserFactory.apply((int) value)
+                        .parse(buffer, resultHandler, partialHandler, charsetDecoder);
             }
-
-            @Override
-            public U partial(LongParser partial) {
-                return visitor.partial(new LenParser<>(bodyParserFactory, partial));
-            }
-        });
+        }, partial -> partialHandler.partial(new LenParser<>(bodyParserFactory, partial)));
     }
 }

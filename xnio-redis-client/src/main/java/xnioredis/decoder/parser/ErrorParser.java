@@ -2,6 +2,7 @@ package xnioredis.decoder.parser;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.CharsetDecoder;
+import java.util.function.Function;
 
 public class ErrorParser<T> implements ReplyParser<T> {
 
@@ -16,23 +17,16 @@ public class ErrorParser<T> implements ReplyParser<T> {
     }
 
     @Override
-    public <U> U parseReply(ByteBuffer buffer, ReplyVisitor<? super T, U> visitor, CharsetDecoder charsetDecoder) {
-        return doParse(buffer, visitor, errorParser, charsetDecoder);
+    public <U> U parseReply(ByteBuffer buffer, Function<? super T, U> resultHandler,
+            PartialReplyHandler<? super T, U> partialReplyHandler, FailureHandler<U> failureHandler,
+            CharsetDecoder charsetDecoder) {
+        return doParse(buffer, partialReplyHandler, failureHandler, errorParser, charsetDecoder);
     }
 
-    private <U> U doParse(ByteBuffer buffer, ReplyVisitor<? super T, U> visitor,
-            Parser<? extends CharSequence> errorParser, CharsetDecoder charsetDecoder) {
-        Parser.Visitor<CharSequence, U> visitor1 = new Parser.Visitor<CharSequence, U>() {
-            @Override
-            public U success(CharSequence message) {
-                return visitor.failure(message);
-            }
-
-            @Override
-            public U partial(Parser<? extends CharSequence> partial) {
-                return visitor.partialReply(new ErrorParser<T>(partial));
-            }
-        };
-        return errorParser.parse(buffer, visitor1, charsetDecoder);
+    private <U> U doParse(ByteBuffer buffer, PartialReplyHandler<? super T, U> partialReplyHandler,
+            FailureHandler<U> failureHandler, Parser<? extends CharSequence> errorParser,
+            CharsetDecoder charsetDecoder) {
+        return errorParser.parse(buffer, failureHandler::failure,
+                partial -> partialReplyHandler.partialReply(new ErrorParser<T>(partial)), charsetDecoder);
     }
 }

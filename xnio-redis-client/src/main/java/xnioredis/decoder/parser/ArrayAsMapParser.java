@@ -2,9 +2,9 @@ package xnioredis.decoder.parser;
 
 import xnioredis.decoder.MapBuilderFactory;
 
-import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharsetDecoder;
+import java.util.function.Function;
 
 public class ArrayAsMapParser<T, K, V> implements Parser<T> {
     private final int len;
@@ -18,43 +18,37 @@ public class ArrayAsMapParser<T, K, V> implements Parser<T> {
     }
 
     @Override
-    public <U> U parse(ByteBuffer buffer, Visitor<? super T, U> visitor, CharsetDecoder charsetDecoder) {
-        return doParse(buffer, visitor, builderFactory.create(len), len, kvParser, charsetDecoder);
+    public <U> U parse(ByteBuffer buffer, Function<? super T, U> resultHandler,
+            PartialHandler<? super T, U> partialHandler, CharsetDecoder charsetDecoder) {
+        return doParse(buffer, resultHandler, partialHandler, builderFactory.create(len), len, kvParser,
+                charsetDecoder);
     }
 
-    private <U> U doParse(ByteBuffer buffer, Visitor<? super T, U> visitor,
-            MapBuilderFactory.Builder<K, V, ? extends T> builder, int remaining,
-            SeqParser<? extends K, ? extends V> kvSeqParser, CharsetDecoder charsetDecoder) {
+    private <U> U doParse(ByteBuffer buffer, Function<? super T, U> resultHandler,
+            PartialHandler<? super T, U> partialHandler, MapBuilderFactory.Builder<K, V, ? extends T> builder,
+            int remaining, SeqParser<? extends K, ? extends V> kvSeqParser, CharsetDecoder charsetDecoder) {
         while (remaining > 0) {
             Parser<T> partial = parsePartial(buffer, builder, remaining, kvSeqParser, charsetDecoder);
             if (partial != null) {
-                return visitor.partial(partial);
+                return partialHandler.partial(partial);
             } else {
                 remaining--;
                 kvSeqParser = kvParser;
             }
         }
-        return visitor.success(builder.build());
+        return resultHandler.apply(builder.build());
     }
 
     private Parser<T> parsePartial(ByteBuffer buffer, MapBuilderFactory.Builder<K, V, ? extends T> builder,
             int remaining, SeqParser<? extends K, ? extends V> kvSeqParser, CharsetDecoder charsetDecoder) {
-        return kvSeqParser.parse(buffer, new SeqParser.Visitor<K, V, Parser<T>>() {
+        return kvSeqParser.parse(buffer, (key, value) -> {
+            builder.put(key, value);
+            return null;
+        }, partial -> new Parser<T>() {
             @Override
-            public Parser<T> success(@Nullable K value1, @Nullable V value2) {
-                builder.put(value1, value2);
-                return null;
-            }
-
-            @Override
-            public Parser<T> partial(SeqParser<? extends K, ? extends V> partial) {
-                return new Parser<T>() {
-                    @Override
-                    public <U1> U1 parse(ByteBuffer buffer, Visitor<? super T, U1> visitor,
-                            CharsetDecoder charsetDecoder) {
-                        return doParse(buffer, visitor, builder, remaining, partial, charsetDecoder);
-                    }
-                };
+            public <U1> U1 parse(ByteBuffer buffer, Function<? super T, U1> resultHandler,
+                    PartialHandler<? super T, U1> partialHandler, CharsetDecoder charsetDecoder) {
+                return doParse(buffer, resultHandler, partialHandler, builder, remaining, partial, charsetDecoder);
             }
         }, charsetDecoder);
     }

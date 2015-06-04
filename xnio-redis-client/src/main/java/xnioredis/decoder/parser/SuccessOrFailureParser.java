@@ -2,6 +2,7 @@ package xnioredis.decoder.parser;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.CharsetDecoder;
+import java.util.function.Function;
 
 public class SuccessOrFailureParser<T> implements ReplyParser<T> {
     private final ErrorParser<T> errorParser = new ErrorParser<>();
@@ -14,18 +15,21 @@ public class SuccessOrFailureParser<T> implements ReplyParser<T> {
     }
 
     @Override
-    public <U> U parseReply(ByteBuffer buffer, ReplyVisitor<? super T, U> visitor, CharsetDecoder charsetDecoder) {
+    public <U> U parseReply(ByteBuffer buffer, Function<? super T, U> resultHandler,
+            PartialReplyHandler<? super T, U> partialReplyHandler, FailureHandler<U> failureHandler,
+            CharsetDecoder charsetDecoder) {
         if (buffer.hasRemaining()) {
             byte b = buffer.get();
             if (b == marker) {
-                return parser.parse(buffer, visitor, charsetDecoder);
+                return parser.parse(buffer, resultHandler, partialReplyHandler, charsetDecoder);
             } else if (b == '-') {
-                return errorParser.parseReply(buffer, visitor, charsetDecoder);
+                return errorParser
+                        .parseReply(buffer, resultHandler, partialReplyHandler, failureHandler, charsetDecoder);
             } else {
                 throw new IllegalStateException("'" + marker + "' is expected but '" + (char) b + "' was found");
             }
         } else {
-            return visitor.partialReply(this);
+            return partialReplyHandler.partialReply(this);
         }
     }
 }

@@ -2,9 +2,9 @@ package xnioredis.decoder.parser;
 
 import xnioredis.decoder.ArrayBuilderFactory;
 
-import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharsetDecoder;
+import java.util.function.Function;
 
 public class ArrayParser<T, E> implements Parser<T> {
     private final int len;
@@ -18,43 +18,37 @@ public class ArrayParser<T, E> implements Parser<T> {
     }
 
     @Override
-    public <U> U parse(ByteBuffer buffer, Visitor<? super T, U> visitor, CharsetDecoder charsetDecoder) {
-        return doParse(buffer, visitor, builderFactory.create(len), len, elementParser, charsetDecoder);
+    public <U> U parse(ByteBuffer buffer, Function<? super T, U> resultHandler,
+            PartialHandler<? super T, U> partialHandler, CharsetDecoder charsetDecoder) {
+        return doParse(buffer, resultHandler, partialHandler, builderFactory.create(len), len, elementParser,
+                charsetDecoder);
     }
 
-    private <U> U doParse(ByteBuffer buffer, Visitor<? super T, U> visitor,
-            ArrayBuilderFactory.Builder<E, ? extends T> builder, int remaining,
-            Parser<? extends E> elemParser, CharsetDecoder charsetDecoder) {
+    private <U> U doParse(ByteBuffer buffer, Function<? super T, U> resultHandler,
+            PartialHandler<? super T, U> partialHandler, ArrayBuilderFactory.Builder<E, ? extends T> builder,
+            int remaining, Parser<? extends E> elemParser, CharsetDecoder charsetDecoder) {
         while (remaining > 0) {
             Parser<T> partial = parsePartial(buffer, builder, remaining, elemParser, charsetDecoder);
             if (partial != null) {
-                return visitor.partial(partial);
+                return partialHandler.partial(partial);
             } else {
                 remaining--;
                 elemParser = elementParser;
             }
         }
-        return visitor.success(builder.build());
+        return resultHandler.apply(builder.build());
     }
 
     private Parser<T> parsePartial(ByteBuffer buffer, ArrayBuilderFactory.Builder<E, ? extends T> builder,
             int remaining, Parser<? extends E> elemParser, CharsetDecoder charsetDecoder) {
-        return elemParser.parse(buffer, new Visitor<E, Parser<T>>() {
+        return elemParser.parse(buffer, value -> {
+            builder.add(value);
+            return null;
+        }, partial -> new Parser<T>() {
             @Override
-            public Parser<T> success(@Nullable E value) {
-                builder.add(value);
-                return null;
-            }
-
-            @Override
-            public Parser<T> partial(Parser<? extends E> partial) {
-                return new Parser<T>() {
-                    @Override
-                    public <U1> U1 parse(ByteBuffer buffer, Visitor<? super T, U1> visitor,
-                            CharsetDecoder charsetDecoder) {
-                        return doParse(buffer, visitor, builder, remaining, partial, charsetDecoder);
-                    }
-                };
+            public <U1> U1 parse(ByteBuffer buffer, Function<? super T, U1> resultHandler,
+                    PartialHandler<? super T, U1> partialHandler, CharsetDecoder charsetDecoder) {
+                return doParse(buffer, resultHandler, partialHandler, builder, remaining, partial, charsetDecoder);
             }
         }, charsetDecoder);
     }

@@ -2,13 +2,14 @@ package xnioredis.decoder.parser;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.CharsetDecoder;
+import java.util.function.Function;
 import java.util.function.LongFunction;
 
 public abstract class LongParser {
     static final LongParser PARSER = new LongParser() {
         @Override
-        <T> T parse(ByteBuffer buffer, Visitor<T> visitor) {
-            return doParse(buffer, visitor, false, 0, SIGN_OR_DIGIT);
+        <T> T parse(ByteBuffer buffer, LongFunction<T> resultHandler, PartialHandler<T> partialHandler) {
+            return doParse(buffer, resultHandler, partialHandler, false, 0, SIGN_OR_DIGIT);
         }
     };
     public static final Parser<Integer> INTEGER_PARSER = new ParserAdaptor<>(PARSER, l -> (int) l);
@@ -17,9 +18,10 @@ public abstract class LongParser {
     private static final int DIGIT = 1;
     private static final int WAITING_FOR_LF = 2;
 
-    abstract <T> T parse(ByteBuffer buffer, Visitor<T> visitor);
+    abstract <T> T parse(ByteBuffer buffer, LongFunction<T> resultHandler, PartialHandler<T> partialHandler);
 
-    private static <T> T doParse(ByteBuffer buffer, Visitor<T> visitor, boolean negative, long num, int state) {
+    private static <T> T doParse(ByteBuffer buffer, LongFunction<T> resultHandler, PartialHandler<T> partialHandler,
+            boolean negative, long num, int state) {
         while (buffer.hasRemaining()) {
             byte b = buffer.get();
             switch (state) {
@@ -70,18 +72,16 @@ public abstract class LongParser {
                     break;
                 case WAITING_FOR_LF:
                     if (b == '\n') {
-                        return visitor.success(negative ? -num : num);
+                        return resultHandler.apply(negative ? -num : num);
                     } else {
                         throw new IllegalStateException("LF is expected");
                     }
             }
         }
-        return visitor.partial(new LongPartial(negative, num, state));
+        return partialHandler.partial(new LongPartial(negative, num, state));
     }
 
-    interface Visitor<T> {
-        T success(long value);
-
+    interface PartialHandler<T> {
         T partial(LongParser partial);
     }
 
@@ -97,8 +97,8 @@ public abstract class LongParser {
         }
 
         @Override
-        <T> T parse(ByteBuffer buffer, Visitor<T> visitor) {
-            return doParse(buffer, visitor, negative, num, state);
+        <T> T parse(ByteBuffer buffer, LongFunction<T> resultHandler, PartialHandler<T> partialHandler) {
+            return doParse(buffer, resultHandler, partialHandler, negative, num, state);
         }
     }
 
@@ -112,18 +112,10 @@ public abstract class LongParser {
         }
 
         @Override
-        public <U> U parse(ByteBuffer buffer, Visitor<? super T, U> visitor, CharsetDecoder charsetDecoder) {
-            return parser.parse(buffer, new LongParser.Visitor<U>() {
-                @Override
-                public U success(long value) {
-                    return visitor.success(longFunction.apply(value));
-                }
-
-                @Override
-                public U partial(LongParser partial) {
-                    return visitor.partial(new ParserAdaptor<>(partial, longFunction));
-                }
-            });
+        public <U> U parse(ByteBuffer buffer, Function<? super T, U> resultHandler,
+                PartialHandler<? super T, U> partialHandler, CharsetDecoder charsetDecoder) {
+            return parser.parse(buffer, value -> resultHandler.apply(longFunction.apply(value)),
+                    partial -> partialHandler.partial(new ParserAdaptor<>(partial, longFunction)));
         }
     }
 }

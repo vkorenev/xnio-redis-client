@@ -2,6 +2,7 @@ package xnioredis.decoder.parser;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.CharsetDecoder;
+import java.util.function.Function;
 
 public class StringParser implements Parser<CharSequence> {
     public static final Parser<CharSequence> INSTANCE = new StringParser();
@@ -12,12 +13,13 @@ public class StringParser implements Parser<CharSequence> {
     }
 
     @Override
-    public <U> U parse(ByteBuffer buffer, Visitor<? super CharSequence, U> visitor, CharsetDecoder charsetDecoder) {
-        return doParse(buffer, visitor, new StringBuilder(), READING);
+    public <U> U parse(ByteBuffer buffer, Function<? super CharSequence, U> resultHandler,
+            PartialHandler<? super CharSequence, U> partialHandler, CharsetDecoder charsetDecoder) {
+        return doParse(buffer, resultHandler, partialHandler, new StringBuilder(), READING);
     }
 
-    private static <U> U doParse(ByteBuffer buffer, Visitor<? super CharSequence, U> visitor,
-            StringBuilder stringBuilder, int state) {
+    private static <U> U doParse(ByteBuffer buffer, Function<? super CharSequence, U> resultHandler,
+            PartialHandler<? super CharSequence, U> partialHandler, StringBuilder stringBuilder, int state) {
         while (buffer.hasRemaining()) {
             byte b = buffer.get();
             switch (state) {
@@ -30,18 +32,18 @@ public class StringParser implements Parser<CharSequence> {
                     break;
                 case WAITING_FOR_LF:
                     if (b == '\n') {
-                        return visitor.success(stringBuilder);
+                        return resultHandler.apply(stringBuilder);
                     } else {
                         throw new IllegalStateException("LF is expected");
                     }
             }
         }
         int state1 = state;
-        return visitor.partial(new Parser<CharSequence>() {
+        return partialHandler.partial(new Parser<CharSequence>() {
             @Override
-            public <U1> U1 parse(ByteBuffer buffer, Visitor<? super CharSequence, U1> visitor,
-                    CharsetDecoder charsetDecoder) {
-                return doParse(buffer, visitor, stringBuilder, state1);
+            public <U1> U1 parse(ByteBuffer buffer, Function<? super CharSequence, U1> resultHandler,
+                    PartialHandler<? super CharSequence, U1> partialHandler, CharsetDecoder charsetDecoder) {
+                return doParse(buffer, resultHandler, partialHandler, stringBuilder, state1);
             }
         });
     }

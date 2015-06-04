@@ -4,6 +4,7 @@ import xnioredis.decoder.BulkStringBuilderFactory;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.CharsetDecoder;
+import java.util.function.Function;
 
 public class BulkStringParser<T> implements Parser<T> {
     private static final int READING = 0;
@@ -18,12 +19,14 @@ public class BulkStringParser<T> implements Parser<T> {
     }
 
     @Override
-    public <U> U parse(ByteBuffer buffer, Visitor<? super T, U> visitor, CharsetDecoder charsetDecoder) {
-        return doParse(buffer, visitor, builderFactory.create(len, charsetDecoder), len, READING);
+    public <U> U parse(ByteBuffer buffer, Function<? super T, U> resultHandler,
+            PartialHandler<? super T, U> partialHandler, CharsetDecoder charsetDecoder) {
+        return doParse(buffer, resultHandler, partialHandler, builderFactory.create(len, charsetDecoder), len, READING);
     }
 
-    private <U> U doParse(ByteBuffer buffer, Visitor<? super T, U> visitor,
-            BulkStringBuilderFactory.Builder<? extends T> builder, int len, int state) {
+    private <U> U doParse(ByteBuffer buffer, Function<? super T, U> resultHandler,
+            PartialHandler<? super T, U> partialHandler, BulkStringBuilderFactory.Builder<? extends T> builder, int len,
+            int state) {
         while (buffer.hasRemaining()) {
             switch (state) {
                 case READING:
@@ -47,7 +50,7 @@ public class BulkStringParser<T> implements Parser<T> {
                     break;
                 case WAITING_FOR_LF:
                     if (buffer.get() == '\n') {
-                        return visitor.success(builder.build());
+                        return resultHandler.apply(builder.build());
                     } else {
                         throw new IllegalStateException("LF is expected");
                     }
@@ -55,10 +58,11 @@ public class BulkStringParser<T> implements Parser<T> {
         }
         int len1 = len;
         int state1 = state;
-        return visitor.partial(new Parser<T>() {
+        return partialHandler.partial(new Parser<T>() {
             @Override
-            public <U1> U1 parse(ByteBuffer buffer, Visitor<? super T, U1> visitor, CharsetDecoder charsetDecoder) {
-                return doParse(buffer, visitor, builder, len1, state1);
+            public <U1> U1 parse(ByteBuffer buffer, Function<? super T, U1> resultHandler,
+                    PartialHandler<? super T, U1> partialHandler, CharsetDecoder charsetDecoder) {
+                return doParse(buffer, resultHandler, partialHandler, builder, len1, state1);
             }
         });
     }

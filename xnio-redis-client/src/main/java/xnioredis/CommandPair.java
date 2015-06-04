@@ -8,6 +8,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CharsetEncoder;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class CommandPair<T1, T2, R> implements Command<R> {
@@ -55,49 +56,35 @@ public class CommandPair<T1, T2, R> implements Command<R> {
         }
 
         @Override
-        public <U> U parseReply(ByteBuffer buffer, ReplyVisitor<? super R, U> visitor, CharsetDecoder charsetDecoder) {
-            return parser1.parseReply(buffer, new ReplyVisitor<T1, U>() {
-                @Override
-                public U failure(CharSequence message) {
-                    return visitor.failure(message);
-                }
-
-                @Override
-                public U partialReply(ReplyParser<? extends T1> partial) {
-                    return visitor.partialReply(new ReplyParser1<>(partial, parser2, biFunction));
-                }
-
-                @Override
-                public U success(@Nullable T1 value1) {
-                    return parse2(buffer, visitor, value1, parser2);
-                }
-
-                private <U1> U1 parse2(ByteBuffer buffer, ReplyVisitor<? super R, U1> visitor, @Nullable T1 value1,
-                        ReplyParser<? extends T2> parser2) {
-                    return parser2.parseReply(buffer, new ReplyVisitor<T2, U1>() {
+        public <U> U parseReply(ByteBuffer buffer, Function<? super R, U> resultHandler,
+                PartialReplyHandler<? super R, U> partialReplyHandler, FailureHandler<U> failureHandler,
+                CharsetDecoder charsetDecoder) {
+            return parser1.parseReply(buffer, new Function<T1, U>() {
                         @Override
-                        public U1 failure(CharSequence message) {
-                            return visitor.failure(message);
+                        public U apply(@Nullable T1 value1) {
+                            return parse2(buffer, resultHandler, partialReplyHandler, failureHandler, value1, parser2);
                         }
 
-                        @Override
-                        public U1 partialReply(ReplyParser<? extends T2> partial) {
-                            return visitor.partialReply(new ReplyParser<R>() {
-                                @Override
-                                public <U2> U2 parseReply(ByteBuffer buffer, ReplyVisitor<? super R, U2> visitor,
-                                        CharsetDecoder charsetDecoder) {
-                                    return parse2(buffer, visitor, value1, partial);
-                                }
-                            });
+                        private <U1> U1 parse2(ByteBuffer buffer, Function<? super R, U1> resultHandler,
+                                PartialReplyHandler<? super R, U1> partialReplyHandler,
+                                FailureHandler<U1> failureHandler, @Nullable T1 value1,
+                                ReplyParser<? extends T2> parser2) {
+                            return parser2
+                                    .parseReply(buffer, value2 -> resultHandler.apply(biFunction.apply(value1, value2)),
+                                            partial -> partialReplyHandler.partialReply(new ReplyParser<R>() {
+                                                @Override
+                                                public <U2> U2 parseReply(ByteBuffer buffer,
+                                                        Function<? super R, U2> resultHandler,
+                                                        PartialReplyHandler<? super R, U2> partialReplyHandler,
+                                                        FailureHandler<U2> failureHandler,
+                                                        CharsetDecoder charsetDecoder) {
+                                                    return parse2(buffer, resultHandler, partialReplyHandler,
+                                                            failureHandler, value1, partial);
+                                                }
+                                            }), failureHandler, charsetDecoder);
                         }
-
-                        @Override
-                        public U1 success(@Nullable T2 value2) {
-                            return visitor.success(biFunction.apply(value1, value2));
-                        }
-                    }, charsetDecoder);
-                }
-            }, charsetDecoder);
+                    }, partial -> partialReplyHandler.partialReply(new ReplyParser1<>(partial, parser2, biFunction)),
+                    failureHandler, charsetDecoder);
         }
     }
 }
