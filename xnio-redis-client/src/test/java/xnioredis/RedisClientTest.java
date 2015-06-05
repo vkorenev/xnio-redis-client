@@ -8,6 +8,7 @@ import org.junit.Test;
 
 import java.net.InetSocketAddress;
 import java.util.Arrays;
+import java.util.concurrent.ExecutionException;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.hamcrest.Matchers.allOf;
@@ -17,9 +18,11 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.emptyArray;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasEntry;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.fail;
 import static xnioredis.Commands.DEL;
 import static xnioredis.Commands.ECHO;
 import static xnioredis.Commands.FLUSHDB;
@@ -59,7 +62,11 @@ public class RedisClientTest {
     }
 
     @After
-    public void closeConnection() {
+    public void closeConnection() throws Exception {
+        // Check that connection still works
+        String message = "12345";
+        assertThat(redisClient.send(ECHO, message).get(), hasSameContentAs(message));
+
         redisClient.close();
         factory.close();
     }
@@ -82,6 +89,23 @@ public class RedisClientTest {
         assertThat(replyFuture1.get(), hasSameContentAs("PONG"));
         assertThat(replyFuture2.get(), hasSameContentAs("PONG"));
         assertThat(replyFuture3.get(), hasSameContentAs("PONG"));
+    }
+
+    @Test
+    public void returnsError() throws Exception {
+        String key = "KEY_1";
+        assertThat(redisClient.send(HSET, key, "FIELD", "VAL").get(), equalTo(1));
+
+        ListenableFuture<byte[]> future = redisClient.send(GET, key);
+        try {
+            future.get();
+            fail();
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            assertThat(cause, instanceOf(RedisException.class));
+            assertThat(cause.getMessage(),
+                    equalTo("WRONGTYPE Operation against a key holding the wrong kind of value"));
+        }
     }
 
     @Test
