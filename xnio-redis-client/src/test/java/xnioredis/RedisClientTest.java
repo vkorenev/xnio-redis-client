@@ -45,9 +45,12 @@ import static xnioredis.Commands.HSET_BYTES;
 import static xnioredis.Commands.HSET_LONG;
 import static xnioredis.Commands.PING;
 import static xnioredis.Commands.SADD;
+import static xnioredis.Commands.SADD_INT_ARR;
+import static xnioredis.Commands.SADD_LONG_ARR;
 import static xnioredis.Commands.SETNX;
 import static xnioredis.Commands.SET_BYTES;
 import static xnioredis.Commands.SMEMBERS;
+import static xnioredis.Commands.SMEMBERS_INTEGER_LIST;
 import static xnioredis.hamcrest.HasSameContentAs.hasSameContentAs;
 
 public class RedisClientTest {
@@ -248,5 +251,23 @@ public class RedisClientTest {
         long val2 = 20;
         assertThat(redisClient.send(SADD, key, Arrays.asList(val1, val2)).get(), equalTo(2));
         assertThat(redisClient.send(SMEMBERS, key).get(), containsInAnyOrder(val1, val2));
+    }
+
+    @Test
+    public void setLongArr() throws Exception {
+        String key = "S_KEY_2";
+        long val1 = 10;
+        long val2 = 20;
+        assertThat(redisClient.send(SADD_LONG_ARR, key, new long[]{val1, val2}).get(), equalTo(2));
+        assertThat(redisClient.send(SMEMBERS, key).get(), containsInAnyOrder(val1, val2));
+    }
+
+    @Test
+    public void setIntArr() throws Exception {
+        String key = "S_KEY_3";
+        int val1 = 10;
+        int val2 = 20;
+        assertThat(redisClient.send(SADD_INT_ARR, key, new int[]{val1, val2}).get(), equalTo(2));
+        assertThat(redisClient.send(SMEMBERS_INTEGER_LIST, key).get(), containsInAnyOrder(val1, val2));
     }
 }

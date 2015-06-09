@@ -36,6 +36,7 @@ import static xnioredis.decoder.ArrayBuilders.immutableList;
 import static xnioredis.decoder.BulkStringBuilders._long;
 import static xnioredis.decoder.BulkStringBuilders.byteArray;
 import static xnioredis.decoder.BulkStringBuilders.charSequence;
+import static xnioredis.decoder.BulkStringBuilders.integer;
 import static xnioredis.decoder.BulkStringBuilders.string;
 import static xnioredis.decoder.MapBuilders.immutableMap;
 import static xnioredis.decoder.Replies.arrayReply;
@@ -47,7 +48,9 @@ import static xnioredis.decoder.Replies.simpleStringReply;
 import static xnioredis.encoder.Encoders.arrayArg;
 import static xnioredis.encoder.Encoders.bytesArg;
 import static xnioredis.encoder.Encoders.collArg;
+import static xnioredis.encoder.Encoders.intArrayArg;
 import static xnioredis.encoder.Encoders.longArg;
+import static xnioredis.encoder.Encoders.longArrayArg;
 import static xnioredis.encoder.Encoders.mapArg;
 import static xnioredis.encoder.Encoders.strArg;
 
@@ -90,6 +93,10 @@ public class Commands {
             hset(strArg(), strArg(), longArg(), integerReply());
     public static final Command2<CharSequence, Collection<Long>, Integer> SADD =
             sadd(strArg(), collArg(longArg()), integerReply());
+    public static final Command2<CharSequence, long[], Integer> SADD_LONG_ARR =
+            sadd(strArg(), longArrayArg(), integerReply());
+    public static final Command2<CharSequence, int[], Integer> SADD_INT_ARR =
+            sadd(strArg(), intArrayArg(), integerReply());
     public static final Command2<CharSequence, CharSequence, CharSequence> SET =
             set(strArg(), strArg(), simpleStringReply());
     public static final Command2<CharSequence, byte[], CharSequence> SET_BYTES =
@@ -99,5 +106,7 @@ public class Commands {
     public static final Command2<CharSequence, byte[], Integer> SETNX = setnx(strArg(), bytesArg(), integerReply());
     public static final Command1<CharSequence, Set<Long>> SMEMBERS =
             smembers(strArg(), arrayReply(collection(HashSet::new), _long()));
+    public static final Command1<CharSequence, List<Integer>> SMEMBERS_INTEGER_LIST =
+            smembers(strArg(), arrayReply(collection(ArrayList::new), integer()));
     public static final Command<CharSequence> PING = ping(simpleStringReply());
 }

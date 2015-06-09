@@ -21,6 +21,38 @@ public class Encoders {
         return CommandBuilder::bulkString;
     }
 
+    public static MultiEncoder<long[]> longArrayArg() {
+        return new MultiEncoder<long[]>() {
+            @Override
+            public int size(long[] es) {
+                return es.length;
+            }
+
+            @Override
+            public void write(CommandBuilder builder, long[] es) throws IOException {
+                for (long e : es) {
+                    builder.bulkString(e);
+                }
+            }
+        };
+    }
+
+    public static MultiEncoder<int[]> intArrayArg() {
+        return new MultiEncoder<int[]>() {
+            @Override
+            public int size(int[] es) {
+                return es.length;
+            }
+
+            @Override
+            public void write(CommandBuilder builder, int[] es) throws IOException {
+                for (int e : es) {
+                    builder.bulkString(e);
+                }
+            }
+        };
+    }
+
     public static <E> MultiEncoder<E[]> arrayArg(Encoder<? super E> elemEncoder) {
         return new MultiEncoder<E[]>() {
             @Override
