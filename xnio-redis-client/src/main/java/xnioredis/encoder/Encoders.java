@@ -6,19 +6,19 @@ import java.util.Map;
 
 public class Encoders {
     public static Encoder<CharSequence> strArg() {
-        return CommandBuilder::bulkString;
+        return RespSink::bulkString;
     }
 
     public static Encoder<Long> longArg() {
-        return CommandBuilder::bulkString;
+        return RespSink::bulkString;
     }
 
     public static Encoder<Integer> intArg() {
-        return CommandBuilder::bulkString;
+        return RespSink::bulkString;
     }
 
     public static Encoder<byte[]> bytesArg() {
-        return CommandBuilder::bulkString;
+        return RespSink::bulkString;
     }
 
     public static MultiEncoder<long[]> longArrayArg() {
@@ -29,9 +29,9 @@ public class Encoders {
             }
 
             @Override
-            public void write(CommandBuilder builder, long[] es) throws IOException {
+            public void write(RespSink sink, long[] es) throws IOException {
                 for (long e : es) {
-                    builder.bulkString(e);
+                    sink.bulkString(e);
                 }
             }
         };
@@ -45,9 +45,9 @@ public class Encoders {
             }
 
             @Override
-            public void write(CommandBuilder builder, int[] es) throws IOException {
+            public void write(RespSink sink, int[] es) throws IOException {
                 for (int e : es) {
-                    builder.bulkString(e);
+                    sink.bulkString(e);
                 }
             }
         };
@@ -61,9 +61,9 @@ public class Encoders {
             }
 
             @Override
-            public void write(CommandBuilder builder, E[] es) throws IOException {
+            public void write(RespSink sink, E[] es) throws IOException {
                 for (E e : es) {
-                    elemEncoder.write(builder, e);
+                    elemEncoder.write(sink, e);
                 }
             }
         };
@@ -77,9 +77,9 @@ public class Encoders {
             }
 
             @Override
-            public void write(CommandBuilder builder, Collection<? extends E> es) throws IOException {
+            public void write(RespSink sink, Collection<? extends E> es) throws IOException {
                 for (E e : es) {
-                    elemEncoder.write(builder, e);
+                    elemEncoder.write(sink, e);
                 }
             }
         };
@@ -94,10 +94,10 @@ public class Encoders {
             }
 
             @Override
-            public void write(CommandBuilder builder, Map<? extends K, ? extends V> map) throws IOException {
+            public void write(RespSink sink, Map<? extends K, ? extends V> map) throws IOException {
                 for (Map.Entry<? extends K, ? extends V> entry : map.entrySet()) {
-                    keyEncoder.write(builder, entry.getKey());
-                    valueEncoder.write(builder, entry.getValue());
+                    keyEncoder.write(sink, entry.getKey());
+                    valueEncoder.write(sink, entry.getValue());
                 }
             }
         };

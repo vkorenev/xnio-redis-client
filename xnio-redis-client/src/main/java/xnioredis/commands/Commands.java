@@ -3,7 +3,6 @@ package xnioredis.commands;
 import xnioredis.Command;
 import xnioredis.CommandWriter;
 import xnioredis.decoder.parser.ReplyParser;
-import xnioredis.encoder.CommandBuilder;
 import xnioredis.encoder.CommandEncoder;
 import xnioredis.encoder.Encoder;
 import xnioredis.encoder.MultiEncoder;
@@ -208,8 +207,7 @@ public class Commands {
     private static <T> Command<T> define(CommandEncoder encoder, ReplyParser<? extends T> parser) {
         return new Command<T>() {
             private final CommandWriter commandWriter = (writeBufferSupplier, charsetEncoder) -> {
-                CommandBuilder commandBuilder = new CommandBuilderImpl(writeBufferSupplier, charsetEncoder);
-                encoder.encode(commandBuilder);
+                encoder.encode(new ByteBuffersRespSink(writeBufferSupplier, charsetEncoder));
             };
 
             @Override

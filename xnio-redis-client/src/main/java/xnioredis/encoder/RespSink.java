@@ -2,7 +2,7 @@ package xnioredis.encoder;
 
 import java.io.IOException;
 
-public interface CommandBuilder {
+public interface RespSink {
     void array(int size) throws IOException;
 
     void bulkString(CharSequence s) throws IOException;
