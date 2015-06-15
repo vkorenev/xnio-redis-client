@@ -1,16 +1,15 @@
 package xnioredis;
 
 import xnioredis.decoder.parser.ReplyParser;
+import xnioredis.encoder.RespSink;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharsetDecoder;
-import java.nio.charset.CharsetEncoder;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class CommandList<T> implements Command<List<T>> {
@@ -27,10 +26,9 @@ public class CommandList<T> implements Command<List<T>> {
                     commands.stream().map(Command::writer).collect(Collectors.toList());
 
             @Override
-            public void write(Supplier<ByteBuffer> writeBufferSupplier, CharsetEncoder charsetEncoder)
-                    throws IOException {
+            public void write(RespSink sink) throws IOException {
                 for (CommandWriter writer : writers) {
-                    writer.write(writeBufferSupplier, charsetEncoder);
+                    writer.write(sink);
                 }
             }
         };

@@ -1,4 +1,4 @@
-package xnioredis.commands;
+package xnioredis;
 
 import com.google.common.base.Utf8;
 import xnioredis.encoder.RespSink;

@@ -119,8 +119,7 @@ public class Commands {
 
     private static <T> Command<T> define(ReplyParser<? extends T> parser, RespArrayElementsWriter... paramWriters) {
         return new Command<T>() {
-            private final CommandWriter commandWriter = (writeBufferSupplier, charsetEncoder) -> {
-                RespSink sink = new ByteBuffersRespSink(writeBufferSupplier, charsetEncoder);
+            private final CommandWriter commandWriter = (sink) -> {
                 int total = 0;
                 for (RespArrayElementsWriter paramWriter : paramWriters) {
                     total += paramWriter.size();

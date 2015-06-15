@@ -6,6 +6,7 @@ import org.xnio.Pooled;
 import org.xnio.StreamConnection;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
+import xnioredis.encoder.RespSink;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -54,10 +55,11 @@ class RedisClientConnection {
         this.outChannel.getWriteSetter().set(outChannel -> {
             try {
                 while (!commandsQueue.isEmpty() || !byteBufferBundle.isEmpty()) {
+                    RespSink sink = new ByteBuffersRespSink(byteBufferBundle, charsetEncoder);
                     CommandEncoderDecoder command;
                     while (byteBufferBundle.allocSize() <= 1 && (command = commandsQueue.poll()) != null) {
                         decoderQueue.add(command);
-                        command.writer().write(byteBufferBundle, charsetEncoder);
+                        command.writer().write(sink);
                     }
                     byteBufferBundle.startReading();
                     try {

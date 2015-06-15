@@ -1,15 +1,14 @@
 package xnioredis;
 
 import xnioredis.decoder.parser.ReplyParser;
+import xnioredis.encoder.RespSink;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharsetDecoder;
-import java.nio.charset.CharsetEncoder;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 public class CommandPair<T1, T2, R> implements Command<R> {
 
@@ -30,10 +29,9 @@ public class CommandPair<T1, T2, R> implements Command<R> {
             private final CommandWriter commandWriter2 = command2.writer();
 
             @Override
-            public void write(Supplier<ByteBuffer> writeBufferSupplier, CharsetEncoder charsetEncoder)
-                    throws IOException {
-                commandWriter1.write(writeBufferSupplier, charsetEncoder);
-                commandWriter2.write(writeBufferSupplier, charsetEncoder);
+            public void write(RespSink sink) throws IOException {
+                commandWriter1.write(sink);
+                commandWriter2.write(sink);
             }
         };
     }
