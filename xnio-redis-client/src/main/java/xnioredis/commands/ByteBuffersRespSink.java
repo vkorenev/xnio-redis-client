@@ -129,6 +129,11 @@ class ByteBuffersRespSink implements RespSink {
         }
     }
 
+    @Override
+    public void writeRaw(byte[] bytes) throws IOException {
+        write(bytes);
+    }
+
     private void write(byte b) {
         if (!buffer.hasRemaining()) {
             buffer = writeBufferSupplier.get();

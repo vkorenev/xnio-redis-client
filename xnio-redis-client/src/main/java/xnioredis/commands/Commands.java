@@ -3,211 +3,132 @@ package xnioredis.commands;
 import xnioredis.Command;
 import xnioredis.CommandWriter;
 import xnioredis.decoder.parser.ReplyParser;
-import xnioredis.encoder.CommandEncoder;
 import xnioredis.encoder.Encoder;
 import xnioredis.encoder.MultiEncoder;
-
-import static java.nio.charset.StandardCharsets.US_ASCII;
+import xnioredis.encoder.RespArrayElementsWriter;
+import xnioredis.encoder.RespSink;
 
 public class Commands {
-    private static final byte[] DEL = bytes("DEL");
-    private static final byte[] ECHO = bytes("ECHO");
-    private static final byte[] FLUSHALL = bytes("FLUSHALL");
-    private static final byte[] FLUSHDB = bytes("FLUSHDB");
-    private static final byte[] GET = bytes("GET");
-    private static final byte[] HDEL = bytes("HDEL");
-    private static final byte[] HGET = bytes("HGET");
-    private static final byte[] HGETALL = bytes("HGETALL");
-    private static final byte[] HINCRBY = bytes("HINCRBY");
-    private static final byte[] HKEYS = bytes("HKEYS");
-    private static final byte[] HLEN = bytes("HLEN");
-    private static final byte[] HMGET = bytes("HMGET");
-    private static final byte[] HMSET = bytes("HMSET");
-    private static final byte[] HSET = bytes("HSET");
-    private static final byte[] SADD = bytes("SADD");
-    private static final byte[] SET = bytes("SET");
-    private static final byte[] SETNX = bytes("SETNX");
-    private static final byte[] SMEMBERS = bytes("SMEMBERS");
-    private static final byte[] PING = bytes("PING");
+    private static final RespArrayElementsWriter DEL = new BulkStringLiteral("DEL");
+    private static final RespArrayElementsWriter ECHO = new BulkStringLiteral("ECHO");
+    private static final RespArrayElementsWriter FLUSHALL = new BulkStringLiteral("FLUSHALL");
+    private static final RespArrayElementsWriter FLUSHDB = new BulkStringLiteral("FLUSHDB");
+    private static final RespArrayElementsWriter GET = new BulkStringLiteral("GET");
+    private static final RespArrayElementsWriter HDEL = new BulkStringLiteral("HDEL");
+    private static final RespArrayElementsWriter HGET = new BulkStringLiteral("HGET");
+    private static final RespArrayElementsWriter HGETALL = new BulkStringLiteral("HGETALL");
+    private static final RespArrayElementsWriter HINCRBY = new BulkStringLiteral("HINCRBY");
+    private static final RespArrayElementsWriter HKEYS = new BulkStringLiteral("HKEYS");
+    private static final RespArrayElementsWriter HLEN = new BulkStringLiteral("HLEN");
+    private static final RespArrayElementsWriter HMGET = new BulkStringLiteral("HMGET");
+    private static final RespArrayElementsWriter HMSET = new BulkStringLiteral("HMSET");
+    private static final RespArrayElementsWriter HSET = new BulkStringLiteral("HSET");
+    private static final RespArrayElementsWriter SADD = new BulkStringLiteral("SADD");
+    private static final RespArrayElementsWriter SET = new BulkStringLiteral("SET");
+    private static final RespArrayElementsWriter SETNX = new BulkStringLiteral("SETNX");
+    private static final RespArrayElementsWriter SMEMBERS = new BulkStringLiteral("SMEMBERS");
+    private static final RespArrayElementsWriter PING = new BulkStringLiteral("PING");
 
     public static <K, R> Command1<K, R> del(MultiEncoder<? super K> keysEncoder, ReplyParser<? extends R> replyParser) {
-        return (keys) -> define(cb -> {
-            cb.array(1 + keysEncoder.size(keys));
-            cb.bulkString(DEL);
-            keysEncoder.write(cb, keys);
-        }, replyParser);
+        return keys -> define(replyParser, DEL, keysEncoder.encode(keys));
     }
 
     public static <K, R> Command1<K, R> echo(Encoder<? super K> messageEncoder, ReplyParser<? extends R> replyParser) {
-        return key -> define(cb -> {
-            cb.array(2);
-            cb.bulkString(ECHO);
-            messageEncoder.write(cb, key);
-        }, replyParser);
+        return key -> define(replyParser, ECHO, messageEncoder.encode(key));
     }
 
     public static <R> Command<R> flushall(ReplyParser<? extends R> replyParser) {
-        return define(cb -> {
-            cb.array(1);
-            cb.bulkString(FLUSHALL);
-        }, replyParser);
+        return define(replyParser, FLUSHALL);
     }
 
     public static <R> Command<R> flushdb(ReplyParser<? extends R> replyParser) {
-        return define(cb -> {
-            cb.array(1);
-            cb.bulkString(FLUSHDB);
-        }, replyParser);
+        return define(replyParser, FLUSHDB);
     }
 
     public static <K, R> Command1<K, R> get(Encoder<? super K> keyEncoder, ReplyParser<? extends R> replyParser) {
-        return key -> define(cb -> {
-            cb.array(2);
-            cb.bulkString(GET);
-            keyEncoder.write(cb, key);
-        }, replyParser);
+        return key -> define(replyParser, GET, keyEncoder.encode(key));
     }
 
     public static <K, F, R> Command2<K, F, R> hdel(Encoder<? super K> keyEncoder, MultiEncoder<? super F> fieldsEncoder,
             ReplyParser<? extends R> replyParser) {
-        return (key, fields) -> define(cb -> {
-            cb.array(2 + fieldsEncoder.size(fields));
-            cb.bulkString(HDEL);
-            keyEncoder.write(cb, key);
-            fieldsEncoder.write(cb, fields);
-        }, replyParser);
+        return (key, fields) -> define(replyParser, HDEL, keyEncoder.encode(key), fieldsEncoder.encode(fields));
     }
 
     public static <K, F, R> Command2<K, F, R> hget(Encoder<? super K> keyEncoder, Encoder<? super F> fieldEncoder,
             ReplyParser<? extends R> replyParser) {
-        return (key, field) -> define(cb -> {
-            cb.array(3);
-            cb.bulkString(HGET);
-            keyEncoder.write(cb, key);
-            fieldEncoder.write(cb, field);
-        }, replyParser);
+        return (key, field) -> define(replyParser, HGET, keyEncoder.encode(key), fieldEncoder.encode(field));
     }
 
     public static <K, R> Command1<K, R> hgetall(Encoder<? super K> keyEncoder, ReplyParser<? extends R> replyParser) {
-        return key -> define(cb -> {
-            cb.array(2);
-            cb.bulkString(HGETALL);
-            keyEncoder.write(cb, key);
-        }, replyParser);
+        return key -> define(replyParser, HGETALL, keyEncoder.encode(key));
     }
 
     public static <K, R> Command1<K, R> hkeys(Encoder<? super K> keyEncoder, ReplyParser<? extends R> replyParser) {
-        return key -> define(cb -> {
-            cb.array(2);
-            cb.bulkString(HKEYS);
-            keyEncoder.write(cb, key);
-        }, replyParser);
+        return key -> define(replyParser, HKEYS, keyEncoder.encode(key));
     }
 
     public static <K, F, V, R> Command3<K, F, V, R> hincrby(Encoder<? super K> keyEncoder,
             Encoder<? super F> fieldEncoder, Encoder<? super V> incrementEncoder,
             ReplyParser<? extends R> replyParser) {
-        return (key, field, increment) -> define(cb -> {
-            cb.array(4);
-            cb.bulkString(HINCRBY);
-            keyEncoder.write(cb, key);
-            fieldEncoder.write(cb, field);
-            incrementEncoder.write(cb, increment);
-        }, replyParser);
+        return (key, field, increment) -> define(replyParser, HINCRBY, keyEncoder.encode(key),
+                fieldEncoder.encode(field), incrementEncoder.encode(increment));
     }
 
     public static <K, R> Command1<K, R> hlen(Encoder<? super K> keyEncoder, ReplyParser<? extends R> replyParser) {
-        return key -> define(cb -> {
-            cb.array(2);
-            cb.bulkString(HLEN);
-            keyEncoder.write(cb, key);
-        }, replyParser);
+        return key -> define(replyParser, HLEN, keyEncoder.encode(key));
     }
 
     public static <K, F, R> Command2<K, F, R> hmget(Encoder<? super K> keyEncoder,
             MultiEncoder<? super F> fieldsEncoder, ReplyParser<? extends R> replyParser) {
-        return (key, fields) -> define(cb -> {
-            cb.array(2 + fieldsEncoder.size(fields));
-            cb.bulkString(HMGET);
-            keyEncoder.write(cb, key);
-            fieldsEncoder.write(cb, fields);
-        }, replyParser);
+        return (key, fields) -> define(replyParser, HMGET, keyEncoder.encode(key), fieldsEncoder.encode(fields));
     }
 
     public static <K, F, R> Command2<K, F, R> hmset(Encoder<? super K> keyEncoder,
             MultiEncoder<? super F> fieldsEncoder, ReplyParser<? extends R> replyParser) {
-        return (key, fields) -> define(cb -> {
-            cb.array(2 + fieldsEncoder.size(fields));
-            cb.bulkString(HMSET);
-            keyEncoder.write(cb, key);
-            fieldsEncoder.write(cb, fields);
-        }, replyParser);
+        return (key, fields) -> define(replyParser, HMSET, keyEncoder.encode(key), fieldsEncoder.encode(fields));
     }
 
     public static <K, F, V, R> Command3<K, F, V, R> hset(Encoder<? super K> keyEncoder, Encoder<? super F> fieldEncoder,
             Encoder<? super V> valueEncoder, ReplyParser<? extends R> replyParser) {
-        return (key, field, value) -> define(cb -> {
-            cb.array(4);
-            cb.bulkString(HSET);
-            keyEncoder.write(cb, key);
-            fieldEncoder.write(cb, field);
-            valueEncoder.write(cb, value);
-        }, replyParser);
+        return (key, field, value) -> define(replyParser, HSET, keyEncoder.encode(key), fieldEncoder.encode(field),
+                valueEncoder.encode(value));
     }
 
     public static <K, V, R> Command2<K, V, R> sadd(Encoder<? super K> keyEncoder, MultiEncoder<? super V> valuesEncoder,
             ReplyParser<? extends R> replyParser) {
-        return (key, values) -> define(cb -> {
-            cb.array(2 + valuesEncoder.size(values));
-            cb.bulkString(SADD);
-            keyEncoder.write(cb, key);
-            valuesEncoder.write(cb, values);
-        }, replyParser);
+        return (key, values) -> define(replyParser, SADD, keyEncoder.encode(key), valuesEncoder.encode(values));
     }
 
     public static <K, V, R> Command2<K, V, R> set(Encoder<? super K> keyEncoder, Encoder<? super V> valueEncoder,
             ReplyParser<? extends R> replyParser) {
-        return (key, value) -> define(cb -> {
-            cb.array(3);
-            cb.bulkString(SET);
-            keyEncoder.write(cb, key);
-            valueEncoder.write(cb, value);
-        }, replyParser);
+        return (key, value) -> define(replyParser, SET, keyEncoder.encode(key), valueEncoder.encode(value));
     }
 
     public static <K, V, R> Command2<K, V, R> setnx(Encoder<? super K> keyEncoder, Encoder<? super V> valueEncoder,
             ReplyParser<? extends R> replyParser) {
-        return (key, value) -> define(cb -> {
-            cb.array(3);
-            cb.bulkString(SETNX);
-            keyEncoder.write(cb, key);
-            valueEncoder.write(cb, value);
-        }, replyParser);
+        return (key, value) -> define(replyParser, SETNX, keyEncoder.encode(key), valueEncoder.encode(value));
     }
 
     public static <K, R> Command1<K, R> smembers(Encoder<? super K> keyEncoder, ReplyParser<? extends R> replyParser) {
-        return key -> define(cb -> {
-            cb.array(2);
-            cb.bulkString(SMEMBERS);
-            keyEncoder.write(cb, key);
-        }, replyParser);
+        return key -> define(replyParser, SMEMBERS, keyEncoder.encode(key));
     }
 
     public static <R> Command<R> ping(ReplyParser<? extends R> replyParser) {
-        return define(cb -> {
-            cb.array(1);
-            cb.bulkString(PING);
-        }, replyParser);
+        return define(replyParser, PING);
     }
 
-    private static byte[] bytes(String commandName) {
-        return commandName.getBytes(US_ASCII);
-    }
-
-    private static <T> Command<T> define(CommandEncoder encoder, ReplyParser<? extends T> parser) {
+    private static <T> Command<T> define(ReplyParser<? extends T> parser, RespArrayElementsWriter... paramWriters) {
         return new Command<T>() {
             private final CommandWriter commandWriter = (writeBufferSupplier, charsetEncoder) -> {
-                encoder.encode(new ByteBuffersRespSink(writeBufferSupplier, charsetEncoder));
+                RespSink sink = new ByteBuffersRespSink(writeBufferSupplier, charsetEncoder);
+                int total = 0;
+                for (RespArrayElementsWriter paramWriter : paramWriters) {
+                    total += paramWriter.size();
+                }
+                sink.array(total);
+                for (RespArrayElementsWriter paramWriter : paramWriters) {
+                    paramWriter.writeTo(sink);
+                }
             };
 
             @Override

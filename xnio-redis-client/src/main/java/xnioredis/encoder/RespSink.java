@@ -14,4 +14,6 @@ public interface RespSink {
     void bulkString(int num) throws IOException;
 
     void bulkString(long num) throws IOException;
+
+    void writeRaw(byte[] bytes) throws IOException;
 }
