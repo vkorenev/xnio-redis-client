@@ -12,18 +12,18 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class CommandList<T> implements Command<List<T>> {
-    private final List<Command<T>> commands;
+public class CommandList<T> implements Request<List<T>> {
+    private final List<Request<T>> requests;
 
-    public CommandList(List<Command<T>> commands) {
-        this.commands = commands;
+    public CommandList(List<Request<T>> requests) {
+        this.requests = requests;
     }
 
     @Override
     public CommandWriter writer() {
         return new CommandWriter() {
             private final List<CommandWriter> writers =
-                    commands.stream().map(Command::writer).collect(Collectors.toList());
+                    requests.stream().map(Request::writer).collect(Collectors.toList());
 
             @Override
             public void write(RespSink sink) throws IOException {
@@ -37,16 +37,16 @@ public class CommandList<T> implements Command<List<T>> {
     @Override
     public ReplyParser<List<T>> parser() {
         return new ReplyParser<List<T>>() {
-            private final List<T> replies = new ArrayList<>(commands.size());
-            private final Iterator<Command<T>> commandIterator = commands.iterator();
+            private final List<T> replies = new ArrayList<>(requests.size());
+            private final Iterator<Request<T>> requestIterator = requests.iterator();
 
             @Override
             public <U> U parseReply(ByteBuffer buffer, Function<? super List<T>, U> resultHandler,
                     PartialReplyHandler<? super List<T>, U> partialReplyHandler, FailureHandler<U> failureHandler,
                     CharsetDecoder charsetDecoder) {
-                if (commandIterator.hasNext()) {
+                if (requestIterator.hasNext()) {
                     return doParse(buffer, resultHandler, partialReplyHandler, failureHandler,
-                            commandIterator.next().parser(), charsetDecoder);
+                            requestIterator.next().parser(), charsetDecoder);
                 } else {
                     return resultHandler.apply(replies);
                 }

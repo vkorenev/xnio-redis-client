@@ -47,7 +47,7 @@ class XnioRedisClient extends RedisClient {
     }
 
     @Override
-    public <T> ListenableFuture<T> send(Command<T> command) {
+    public <T> ListenableFuture<T> send(Request<T> request) {
         if (closed) {
             return Futures.immediateCancelledFuture();
         }
@@ -56,11 +56,11 @@ class XnioRedisClient extends RedisClient {
         }
         SettableFuture<T> future = SettableFuture.create();
         writerQueue.add(new CommandEncoderDecoder() {
-            private ReplyParser<? extends T> parser = command.parser();
+            private ReplyParser<? extends T> parser = request.parser();
 
             @Override
             public CommandWriter writer() {
-                return command.writer();
+                return request.writer();
             }
 
             @Override

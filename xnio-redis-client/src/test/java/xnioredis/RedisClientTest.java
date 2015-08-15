@@ -114,7 +114,7 @@ public class RedisClientTest {
     @Test
     @SuppressWarnings({"unchecked", "varargs"})
     public void canSendListOfCommands() throws Exception {
-        assertThat(redisClient.send(new CommandList<>(Arrays.<Command<CharSequence>>asList(PING, PING, PING))).get(),
+        assertThat(redisClient.send(new CommandList<>(Arrays.<Request<CharSequence>>asList(PING, PING, PING))).get(),
                 contains(hasSameContentAs("PONG"), hasSameContentAs("PONG"), hasSameContentAs("PONG")));
     }
 

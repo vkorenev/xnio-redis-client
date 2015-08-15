@@ -10,23 +10,23 @@ import java.nio.charset.CharsetDecoder;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-public class CommandPair<T1, T2, R> implements Command<R> {
+public class CommandPair<T1, T2, R> implements Request<R> {
 
-    private final Command<T1> command1;
-    private final Command<T2> command2;
+    private final Request<T1> request1;
+    private final Request<T2> request2;
     private final BiFunction<T1, T2, R> biFunction;
 
-    public CommandPair(Command<T1> command1, Command<T2> command2, BiFunction<T1, T2, R> biFunction) {
-        this.command1 = command1;
-        this.command2 = command2;
+    public CommandPair(Request<T1> request1, Request<T2> request2, BiFunction<T1, T2, R> biFunction) {
+        this.request1 = request1;
+        this.request2 = request2;
         this.biFunction = biFunction;
     }
 
     @Override
     public CommandWriter writer() {
         return new CommandWriter() {
-            private final CommandWriter commandWriter1 = command1.writer();
-            private final CommandWriter commandWriter2 = command2.writer();
+            private final CommandWriter commandWriter1 = request1.writer();
+            private final CommandWriter commandWriter2 = request2.writer();
 
             @Override
             public void write(RespSink sink) throws IOException {
@@ -38,7 +38,7 @@ public class CommandPair<T1, T2, R> implements Command<R> {
 
     @Override
     public ReplyParser<R> parser() {
-        return new ReplyParser1<>(command1.parser(), command2.parser(), biFunction);
+        return new ReplyParser1<>(request1.parser(), request2.parser(), biFunction);
     }
 
     private static class ReplyParser1<T1, T2, R> implements ReplyParser<R> {

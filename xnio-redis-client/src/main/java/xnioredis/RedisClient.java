@@ -6,7 +6,7 @@ import xnioredis.commands.Command2;
 import xnioredis.commands.Command3;
 
 public abstract class RedisClient implements AutoCloseable {
-    public abstract <R> ListenableFuture<R> send(Command<R> command);
+    public abstract <R> ListenableFuture<R> send(Request<R> command);
 
     public final <T, R> ListenableFuture<R> send(Command1<T, R> command, T arg) {
         return send(command.apply(arg));
