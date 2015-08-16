@@ -14,6 +14,7 @@ import java.util.Set;
 
 import static xnioredis.commands.Commands.del;
 import static xnioredis.commands.Commands.echo;
+import static xnioredis.commands.Commands.ex;
 import static xnioredis.commands.Commands.flushall;
 import static xnioredis.commands.Commands.flushdb;
 import static xnioredis.commands.Commands.get;
@@ -48,6 +49,7 @@ import static xnioredis.decoder.Replies.simpleStringReply;
 import static xnioredis.encoder.Encoders.arrayArg;
 import static xnioredis.encoder.Encoders.bytesArg;
 import static xnioredis.encoder.Encoders.collArg;
+import static xnioredis.encoder.Encoders.intArg;
 import static xnioredis.encoder.Encoders.intArrayArg;
 import static xnioredis.encoder.Encoders.longArg;
 import static xnioredis.encoder.Encoders.longArrayArg;
@@ -107,4 +109,5 @@ public class Commands {
     public static final Command1<CharSequence, List<Integer>> SMEMBERS_INTEGER_LIST =
             smembers(strArg(), arrayReply(collection(ArrayList::new), integer()));
     public static final Command<CharSequence> PING = ping(simpleStringReply());
+    public static final Command.OptionalValue<Integer> EX = ex(intArg());
 }
