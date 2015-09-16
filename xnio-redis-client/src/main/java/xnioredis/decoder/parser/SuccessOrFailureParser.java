@@ -4,12 +4,12 @@ import java.nio.ByteBuffer;
 import java.nio.charset.CharsetDecoder;
 import java.util.function.Function;
 
-public class SuccessOrFailureParser<T> implements ReplyParser<T> {
+class SuccessOrFailureParser<T> implements ReplyParser<T> {
     private final ErrorParser<T> errorParser = new ErrorParser<>();
     private final char marker;
     private final Parser<T> parser;
 
-    public SuccessOrFailureParser(char marker, Parser<T> parser) {
+    SuccessOrFailureParser(char marker, Parser<T> parser) {
         this.marker = marker;
         this.parser = parser;
     }
