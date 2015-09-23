@@ -1,14 +1,19 @@
-package xnioredis;
+package xnioredis.guava;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import xnioredis.CommandList;
+import xnioredis.CommandPair;
+import xnioredis.RedisException;
+import xnioredis.Request;
 
 import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
+import java.util.function.BiFunction;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.hamcrest.Matchers.allOf;
@@ -54,12 +59,12 @@ import static xnioredis.Commands.SMEMBERS_INTEGER_LIST;
 import static xnioredis.hamcrest.HasSameContentAs.hasSameContentAs;
 
 public class RedisClientTest {
-    private ClientFactory factory;
+    private RedisClientFactory factory;
     private RedisClient redisClient;
 
     @Before
     public void openConnection() throws Exception {
-        factory = new ClientFactory(UTF_8, 1);
+        factory = new RedisClientFactory(UTF_8, 1);
         redisClient = factory.connect(new InetSocketAddress("localhost", 6379));
         redisClient.send(FLUSHDB).get();
     }
@@ -121,8 +126,8 @@ public class RedisClientTest {
     @Test
     public void canSendPairOfCommands() throws Exception {
         assertThat(redisClient.send(new CommandPair<>(PING, PING,
-                (str1, str2) -> new StringBuilder(str1.length() + str2.length()).append(str1).append(str2))).get(),
-                hasSameContentAs("PONGPONG"));
+                (BiFunction<CharSequence, CharSequence, CharSequence>) (str1, str2) -> new StringBuilder(
+                        str1.length() + str2.length()).append(str1).append(str2))).get(), hasSameContentAs("PONGPONG"));
     }
 
     @Test
@@ -237,8 +242,7 @@ public class RedisClientTest {
                 contains(hasSameContentAs(val1), hasSameContentAs(val2), nullValue()));
         assertThat(redisClient.send(HMGET2, key, Arrays.asList(field1, field2, "NO_SUCH_FIELD")).get(),
                 contains(hasSameContentAs(val1), hasSameContentAs(val2), nullValue()));
-        assertThat(redisClient.send(HGETALL, key).get(), allOf(
-                hasEntry(equalTo(field1), hasSameContentAs(val1)),
+        assertThat(redisClient.send(HGETALL, key).get(), allOf(hasEntry(equalTo(field1), hasSameContentAs(val1)),
                 hasEntry(equalTo(field2), hasSameContentAs(val2))));
         assertThat(redisClient.send(HDEL, key, field1, field2, "NO_SUCH_FIELD").get(), equalTo(2));
         assertThat(redisClient.send(HGETALL, key).get().entrySet(), empty());
