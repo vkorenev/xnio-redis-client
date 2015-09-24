@@ -1,6 +1,5 @@
 package xnioredis.commands;
 
-import com.google.common.collect.Iterators;
 import xnioredis.Command;
 import xnioredis.decoder.parser.ArrayReplyParser;
 import xnioredis.decoder.parser.BulkStringReplyParser;
@@ -10,8 +9,6 @@ import xnioredis.decoder.parser.SimpleStringReplyParser;
 import xnioredis.encoder.Encoder;
 import xnioredis.encoder.MultiEncoder;
 import xnioredis.encoder.RespArrayElementsWriter;
-
-import java.util.Iterator;
 
 public class Commands {
     private static final RespArrayElementsWriter DEL = new BulkStringLiteral("DEL");
@@ -132,8 +129,8 @@ public class Commands {
     private static <T> Command<T> define(ReplyParser<? extends T> parser, RespArrayElementsWriter... paramWriters) {
         return new Command<T>() {
             @Override
-            public Iterator<RespArrayElementsWriter> iterator() {
-                return Iterators.forArray(paramWriters);
+            public RespArrayElementsWriter[] writers() {
+                return paramWriters;
             }
 
             @Override
