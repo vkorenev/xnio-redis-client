@@ -1,8 +1,5 @@
 package xnioredis;
 
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import org.xnio.IoFuture;
 import org.xnio.IoUtils;
 import org.xnio.Pool;
@@ -17,14 +14,15 @@ import java.nio.charset.CharsetDecoder;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-class XnioRedisClient extends RedisClient {
+public abstract class XnioRedisClient<F, SF extends F> implements AutoCloseable {
     private final BlockingQueue<CommandEncoderDecoder> writerQueue = new LinkedBlockingQueue<>();
     private final IoFuture<StreamConnection> streamConnectionFuture;
     private volatile RedisClientConnection redisClientConnection;
     private volatile IOException failure;
     private volatile boolean closed = false;
 
-    XnioRedisClient(IoFuture<StreamConnection> streamConnectionFuture, Pool<ByteBuffer> bufferPool, Charset charset) {
+    protected XnioRedisClient(IoFuture<StreamConnection> streamConnectionFuture, Pool<ByteBuffer> bufferPool,
+            Charset charset) {
         this.streamConnectionFuture = streamConnectionFuture;
         this.streamConnectionFuture.addNotifier(new IoFuture.HandlingNotifier<StreamConnection, Void>() {
             @Override
@@ -46,15 +44,14 @@ class XnioRedisClient extends RedisClient {
         }, null);
     }
 
-    @Override
-    public <T> ListenableFuture<T> send(Request<T> request) {
+    public <T> F send_(final Request<T> request) {
         if (closed) {
-            return Futures.immediateCancelledFuture();
+            return createCancelledFuture();
         }
         if (failure != null) {
-            return Futures.immediateFailedFuture(failure);
+            return createFailedFuture(failure);
         }
-        SettableFuture<T> future = SettableFuture.create();
+        final SF future = createFuture();
         writerQueue.add(new CommandEncoderDecoder() {
             private ReplyParser<? extends T> parser = request.parser();
 
@@ -66,25 +63,25 @@ class XnioRedisClient extends RedisClient {
             @Override
             public boolean parse(ByteBuffer buffer, CharsetDecoder charsetDecoder) throws IOException {
                 return parser.parseReply(buffer, value -> {
-                    future.set(value);
+                    complete(future, value);
                     return true;
                 }, partial -> {
                     parser = partial;
                     return false;
                 }, message -> {
-                    future.setException(new RedisException(message.toString()));
+                    completeExceptionally(future, new RedisException(message.toString()));
                     return true;
                 }, charsetDecoder);
             }
 
             @Override
             public void fail(Throwable e) {
-                future.setException(e);
+                completeExceptionally(future, e);
             }
 
             @Override
             public void cancel() {
-                future.cancel(true);
+                XnioRedisClient.this.cancel(future);
             }
         });
         if (redisClientConnection != null) {
@@ -92,6 +89,18 @@ class XnioRedisClient extends RedisClient {
         }
         return future;
     }
+
+    protected abstract F createCancelledFuture();
+
+    protected abstract F createFailedFuture(Throwable exception);
+
+    protected abstract SF createFuture();
+
+    protected abstract <T> void complete(SF future, T value);
+
+    protected abstract void completeExceptionally(SF future, Throwable exception);
+
+    protected abstract void cancel(SF future);
 
     @Override
     public void close() {

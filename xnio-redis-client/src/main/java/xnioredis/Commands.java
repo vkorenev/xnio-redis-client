@@ -6,6 +6,7 @@ import xnioredis.commands.Command3;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -32,13 +33,12 @@ import static xnioredis.commands.Commands.setnx;
 import static xnioredis.commands.Commands.smembers;
 import static xnioredis.decoder.ArrayBuilders.array;
 import static xnioredis.decoder.ArrayBuilders.collection;
-import static xnioredis.decoder.ArrayBuilders.immutableList;
 import static xnioredis.decoder.BulkStringBuilders._long;
 import static xnioredis.decoder.BulkStringBuilders.byteArray;
 import static xnioredis.decoder.BulkStringBuilders.charSequence;
 import static xnioredis.decoder.BulkStringBuilders.integer;
 import static xnioredis.decoder.BulkStringBuilders.string;
-import static xnioredis.decoder.MapBuilders.immutableMap;
+import static xnioredis.decoder.MapBuilders.map;
 import static xnioredis.decoder.Replies.arrayReply;
 import static xnioredis.decoder.Replies.bulkStringReply;
 import static xnioredis.decoder.Replies.integerReply;
@@ -69,14 +69,12 @@ public class Commands {
     public static final Command2<CharSequence, CharSequence, Long> HGET_LONG =
             hget(strArg(), strArg(), bulkStringReply(_long()));
     public static final Command1<CharSequence, Map<String, CharSequence>> HGETALL =
-            hgetall(strArg(), mapReply(immutableMap(), string(), charSequence()));
+            hgetall(strArg(), mapReply(map(HashMap::new), string(), charSequence()));
     public static final Command3<CharSequence, CharSequence, Long, Long> HINCRBY =
             hincrby(strArg(), strArg(), longArg(), longReply());
     public static final Command1<CharSequence, List<CharSequence>> HKEYS =
-            hkeys(strArg(), arrayReply(immutableList(), charSequence()));
-    public static final Command1<CharSequence, List<CharSequence>> HKEYS2 =
             hkeys(strArg(), arrayReply(collection(ArrayList::new), charSequence()));
-    public static final Command1<CharSequence, CharSequence[]> HKEYS3 =
+    public static final Command1<CharSequence, CharSequence[]> HKEYS_A =
             hkeys(strArg(), arrayReply(array(CharSequence[]::new), charSequence()));
     public static final Command1<CharSequence, Integer> HLEN = hlen(strArg(), integerReply());
     public static final Command2<CharSequence, CharSequence[], List<CharSequence>> HMGET =

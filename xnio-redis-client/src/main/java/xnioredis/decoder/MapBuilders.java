@@ -1,21 +1,24 @@
 package xnioredis.decoder;
 
-import com.google.common.collect.ImmutableMap;
+import javax.annotation.Nullable;
+import java.util.Map;
+import java.util.function.IntFunction;
 
 public class MapBuilders {
-    public static <K, V> MapBuilderFactory<K, V, ImmutableMap<K, V>> immutableMap() {
-        return length -> new MapBuilderFactory.Builder<K, V, ImmutableMap<K, V>>() {
-            private final ImmutableMap.Builder<K, V> builder = ImmutableMap.builder();
+    public static <K, V, M extends Map<K, V>> MapBuilderFactory<K, V, M> map(IntFunction<M> mapFactory) {
+        return length -> {
+            M map = mapFactory.apply(length);
+            return new MapBuilderFactory.Builder<K, V, M>() {
+                @Override
+                public void put(@Nullable K key, @Nullable V value) {
+                    map.put(key, value);
+                }
 
-            @Override
-            public void put(K key, V value) {
-                builder.put(key, value);
-            }
-
-            @Override
-            public ImmutableMap<K, V> build() {
-                return builder.build();
-            }
+                @Override
+                public M build() {
+                    return map;
+                }
+            };
         };
     }
 }

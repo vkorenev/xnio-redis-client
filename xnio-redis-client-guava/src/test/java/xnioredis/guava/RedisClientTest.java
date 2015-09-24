@@ -1,14 +1,19 @@
-package xnioredis;
+package xnioredis.guava;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import xnioredis.CommandList;
+import xnioredis.CommandPair;
+import xnioredis.RedisException;
+import xnioredis.Request;
 
 import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
+import java.util.function.BiFunction;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.hamcrest.Matchers.allOf;
@@ -34,8 +39,7 @@ import static xnioredis.Commands.HGET_BYTES;
 import static xnioredis.Commands.HGET_LONG;
 import static xnioredis.Commands.HINCRBY;
 import static xnioredis.Commands.HKEYS;
-import static xnioredis.Commands.HKEYS2;
-import static xnioredis.Commands.HKEYS3;
+import static xnioredis.Commands.HKEYS_A;
 import static xnioredis.Commands.HLEN;
 import static xnioredis.Commands.HMGET;
 import static xnioredis.Commands.HMGET2;
@@ -51,15 +55,18 @@ import static xnioredis.Commands.SETNX;
 import static xnioredis.Commands.SET_BYTES;
 import static xnioredis.Commands.SMEMBERS;
 import static xnioredis.Commands.SMEMBERS_INTEGER_LIST;
+import static xnioredis.guava.Commands.HGETALL_G;
+import static xnioredis.guava.Commands.HKEYS_G;
+import static xnioredis.guava.Commands.HMGET_G;
 import static xnioredis.hamcrest.HasSameContentAs.hasSameContentAs;
 
 public class RedisClientTest {
-    private ClientFactory factory;
+    private RedisClientFactory factory;
     private RedisClient redisClient;
 
     @Before
     public void openConnection() throws Exception {
-        factory = new ClientFactory(UTF_8, 1);
+        factory = new RedisClientFactory(UTF_8, 1);
         redisClient = factory.connect(new InetSocketAddress("localhost", 6379));
         redisClient.send(FLUSHDB).get();
     }
@@ -121,8 +128,8 @@ public class RedisClientTest {
     @Test
     public void canSendPairOfCommands() throws Exception {
         assertThat(redisClient.send(new CommandPair<>(PING, PING,
-                (str1, str2) -> new StringBuilder(str1.length() + str2.length()).append(str1).append(str2))).get(),
-                hasSameContentAs("PONGPONG"));
+                (BiFunction<CharSequence, CharSequence, CharSequence>) (str1, str2) -> new StringBuilder(
+                        str1.length() + str2.length()).append(str1).append(str2))).get(), hasSameContentAs("PONGPONG"));
     }
 
     @Test
@@ -149,8 +156,8 @@ public class RedisClientTest {
     @Test
     public void hkeysNoKey() throws Exception {
         assertThat(redisClient.send(HKEYS, "NO_SUCH_KEY").get(), empty());
-        assertThat(redisClient.send(HKEYS2, "NO_SUCH_KEY").get(), empty());
-        assertThat(redisClient.send(HKEYS3, "NO_SUCH_KEY").get(), emptyArray());
+        assertThat(redisClient.send(HKEYS_G, "NO_SUCH_KEY").get(), empty());
+        assertThat(redisClient.send(HKEYS_A, "NO_SUCH_KEY").get(), emptyArray());
     }
 
     @Test
@@ -237,11 +244,29 @@ public class RedisClientTest {
                 contains(hasSameContentAs(val1), hasSameContentAs(val2), nullValue()));
         assertThat(redisClient.send(HMGET2, key, Arrays.asList(field1, field2, "NO_SUCH_FIELD")).get(),
                 contains(hasSameContentAs(val1), hasSameContentAs(val2), nullValue()));
-        assertThat(redisClient.send(HGETALL, key).get(), allOf(
-                hasEntry(equalTo(field1), hasSameContentAs(val1)),
+        assertThat(redisClient.send(HGETALL, key).get(), allOf(hasEntry(equalTo(field1), hasSameContentAs(val1)),
                 hasEntry(equalTo(field2), hasSameContentAs(val2))));
         assertThat(redisClient.send(HDEL, key, field1, field2, "NO_SUCH_FIELD").get(), equalTo(2));
         assertThat(redisClient.send(HGETALL, key).get().entrySet(), empty());
+    }
+
+    @SuppressWarnings({"unchecked", "varargs"})
+    @Test
+    public void hashBulkGuava() throws Exception {
+        String key = "H_KEY_1";
+        String field1 = "FIELD_1";
+        String val1 = "VAL_1";
+        String field2 = "FIELD_2";
+        String val2 = "VAL_2";
+        assertThat(redisClient.send(HGETALL_G, key).get().entrySet(), empty());
+        assertThat(redisClient.send(HMSET, key, ImmutableMap.of(field1, val1, field2, val2)).get(),
+                hasSameContentAs("OK"));
+        assertThat(redisClient.send(HMGET_G, key, Arrays.asList(field1, field2)).get(),
+                contains(hasSameContentAs(val1), hasSameContentAs(val2)));
+        assertThat(redisClient.send(HGETALL_G, key).get(), allOf(hasEntry(equalTo(field1), hasSameContentAs(val1)),
+                hasEntry(equalTo(field2), hasSameContentAs(val2))));
+        assertThat(redisClient.send(HDEL, key, field1, field2, "NO_SUCH_FIELD").get(), equalTo(2));
+        assertThat(redisClient.send(HGETALL_G, key).get().entrySet(), empty());
     }
 
     @Test

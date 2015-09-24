@@ -1,4 +1,4 @@
-package xnioredis;
+package xnioredis.guava;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import org.xnio.IoFuture;

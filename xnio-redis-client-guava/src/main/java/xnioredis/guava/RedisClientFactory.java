@@ -1,4 +1,4 @@
-package xnioredis;
+package xnioredis.guava;
 
 import org.xnio.BufferAllocator;
 import org.xnio.ByteBufferSlicePool;
@@ -15,13 +15,13 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 
-public class ClientFactory implements AutoCloseable {
+public class RedisClientFactory implements AutoCloseable {
     private final Pool<ByteBuffer> byteBufferPool =
             new ByteBufferSlicePool(BufferAllocator.DIRECT_BYTE_BUFFER_ALLOCATOR, 4096, 4096 * 256);
     private final Charset charset;
     private final XnioWorker worker;
 
-    public ClientFactory(Charset charset, int ioThreads) throws IOException {
+    public RedisClientFactory(Charset charset, int ioThreads) throws IOException {
         Xnio xnio = Xnio.getInstance();
         this.charset = charset;
         worker = xnio.createWorker(OptionMap.create(Options.WORKER_IO_THREADS, ioThreads));
@@ -29,7 +29,7 @@ public class ClientFactory implements AutoCloseable {
 
     public RedisClient connect(InetSocketAddress address) {
         IoFuture<StreamConnection> streamConnectionFuture = worker.openStreamConnection(address, null, OptionMap.EMPTY);
-        return new XnioRedisClient(streamConnectionFuture, byteBufferPool, charset);
+        return new RedisClient(streamConnectionFuture, byteBufferPool, charset);
     }
 
     @Override

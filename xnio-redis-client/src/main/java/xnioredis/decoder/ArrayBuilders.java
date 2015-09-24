@@ -1,7 +1,5 @@
 package xnioredis.decoder;
 
-import com.google.common.collect.ImmutableList;
-
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.function.IntFunction;
@@ -40,22 +38,6 @@ public class ArrayBuilders {
                     return collection;
                 }
             };
-        };
-    }
-
-    public static <E> ArrayBuilderFactory<E, ImmutableList<E>> immutableList() {
-        return length -> new ArrayBuilderFactory.Builder<E, ImmutableList<E>>() {
-            private final ImmutableList.Builder<E> builder = ImmutableList.builder();
-
-            @Override
-            public void add(E element) {
-                builder.add(element);
-            }
-
-            @Override
-            public ImmutableList<E> build() {
-                return builder.build();
-            }
         };
     }
 }
