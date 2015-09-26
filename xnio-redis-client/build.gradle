@@ -1,0 +1,6 @@
+dependencies {
+  compile group: 'com.google.guava', name: 'guava', version: '18.0'
+  compile group: 'org.jboss.xnio', name: 'xnio-api', version: '3.3.2.Final'
+  compile group: 'org.jboss.xnio', name: 'xnio-nio', version: '3.3.2.Final'
+  compile group: 'org.jboss.logging', name: 'jboss-logging', version: '3.3.0.Final'
+}

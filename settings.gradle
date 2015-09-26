@@ -1,0 +1,4 @@
+rootProject.name = 'xnio-redis'
+
+include 'xnio-redis-client'
+include 'xnio-redis-client-guava'

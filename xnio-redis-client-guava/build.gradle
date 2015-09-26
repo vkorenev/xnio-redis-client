@@ -1,0 +1,6 @@
+dependencies {
+  compile project(':xnio-redis-client')
+  compile group: 'com.google.guava', name: 'guava', version: '18.0'
+  testCompile project(':xnio-redis-client').sourceSets.test.output
+  testCompile group: 'org.hamcrest', name: 'hamcrest-library', version: '1.3'
+}
