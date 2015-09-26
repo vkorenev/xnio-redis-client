@@ -13,6 +13,7 @@ import xnioredis.encoder.RespArrayElementsWriter;
 public class Commands {
     private static final RespArrayElementsWriter DEL = new BulkStringLiteral("DEL");
     private static final RespArrayElementsWriter ECHO = new BulkStringLiteral("ECHO");
+    private static final RespArrayElementsWriter EX = new BulkStringLiteral("EX");
     private static final RespArrayElementsWriter FLUSHALL = new BulkStringLiteral("FLUSHALL");
     private static final RespArrayElementsWriter FLUSHDB = new BulkStringLiteral("FLUSHDB");
     private static final RespArrayElementsWriter GET = new BulkStringLiteral("GET");
@@ -136,6 +137,20 @@ public class Commands {
             @Override
             public ReplyParser<? extends T> parser() {
                 return parser;
+            }
+        };
+    }
+
+    public static <V> Command.OptionalValue<V> ex(Encoder<V> encoder) {
+        return new Command.OptionalValue<V>() {
+            @Override
+            public RespArrayElementsWriter nameWriter() {
+                return EX;
+            }
+
+            @Override
+            public Encoder<V> encoder() {
+                return encoder;
             }
         };
     }

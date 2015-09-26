@@ -30,6 +30,7 @@ import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
 import static xnioredis.Commands.DEL;
 import static xnioredis.Commands.ECHO;
+import static xnioredis.Commands.EX;
 import static xnioredis.Commands.FLUSHDB;
 import static xnioredis.Commands.GET;
 import static xnioredis.Commands.HDEL;
@@ -187,6 +188,17 @@ public class RedisClientTest {
         byte[] val2 = {'4', '5', '6'};
         assertThat(redisClient.send(GET, key).get(), nullValue());
         assertThat(redisClient.send(SET_BYTES, key, val1).get(), hasSameContentAs("OK"));
+        assertThat(redisClient.send(SET_BYTES, key, val2).get(), hasSameContentAs("OK"));
+        assertArrayEquals(redisClient.send(GET, key).get(), val2);
+    }
+
+    @Test
+    public void getSetExBytes() throws Exception {
+        String key = "KEY_1";
+        byte[] val1 = {'1', '2', '3'};
+        byte[] val2 = {'4', '5', '6'};
+        assertThat(redisClient.send(GET, key).get(), nullValue());
+        assertThat(redisClient.send(SET_BYTES, key, val1, EX, 10).get(), hasSameContentAs("OK"));
         assertThat(redisClient.send(SET_BYTES, key, val2).get(), hasSameContentAs("OK"));
         assertArrayEquals(redisClient.send(GET, key).get(), val2);
     }
