@@ -13,6 +13,9 @@
     <module>xnio-redis-commands</module>
     <module>xnio-redis-client-guava</module>
   </modules>
+  <prerequisites>
+    <maven>3.0.4</maven>
+  </prerequisites>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
