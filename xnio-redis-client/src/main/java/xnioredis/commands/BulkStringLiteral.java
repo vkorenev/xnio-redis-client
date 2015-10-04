@@ -5,7 +5,7 @@ import xnioredis.encoder.RespSink;
 
 import java.io.IOException;
 
-class BulkStringLiteral implements RespArrayElementsWriter {
+public class BulkStringLiteral implements RespArrayElementsWriter {
     private final byte[] bytes;
 
     public BulkStringLiteral(CharSequence str) {

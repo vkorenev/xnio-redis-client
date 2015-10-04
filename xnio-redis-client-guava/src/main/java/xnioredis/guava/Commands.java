@@ -7,9 +7,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-import static xnioredis.commands.Commands.hgetall;
-import static xnioredis.commands.Commands.hkeys;
-import static xnioredis.commands.Commands.hmget;
+import static xnioredis.commands.Hash.hgetall;
+import static xnioredis.commands.Hash.hkeys;
+import static xnioredis.commands.Hash.hmget;
 import static xnioredis.decoder.BulkStringBuilders.charSequence;
 import static xnioredis.decoder.BulkStringBuilders.string;
 import static xnioredis.decoder.Replies.arrayReply;
