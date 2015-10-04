@@ -85,7 +85,7 @@ public class Encoders {
         };
     }
 
-    public static <K, V> MultiEncoder<Map<? extends K, ? extends V>> mapArg(Encoder<? super K> keyEncoder,
+    public static <K, V> MultiPairEncoder<Map<? extends K, ? extends V>> mapArg(Encoder<? super K> keyEncoder,
             Encoder<? super V> valueEncoder) {
         return map -> new RespArrayElementsWriter() {
             @Override

@@ -12,7 +12,7 @@
   <dependencies>
     <dependency>
       <groupId>${project.parent.groupId}</groupId>
-      <artifactId>xnio-redis-client</artifactId>
+      <artifactId>xnio-redis-commands</artifactId>
       <version>${project.parent.version}</version>
     </dependency>
     <dependency>
