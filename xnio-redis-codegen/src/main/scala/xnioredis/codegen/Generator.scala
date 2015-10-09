@@ -15,17 +15,12 @@ import xnioredis.encoder.{Encoder, MultiEncoder, MultiPairEncoder, RespArrayElem
 import scala.collection.mutable
 import scala.io.Source
 
-object Generator {
+class Generator(dir: Path) {
   private val skippedGroups: Set[String] = Set("scripting", "transactions")
   private val supportedArgAttrs: Set[String] = Set("name", "type", "multiple", "optional")
   private val classLoader = Generator.getClass.getClassLoader
 
-  def main(args: Array[String]) {
-    if (args.length < 1) throw new IllegalArgumentException("Target directory must be provided as the first argument")
-    generate(Paths.get(args(0)))
-  }
-
-  def generate(dir: Path) {
+  def generate() {
     val groupBuilders: mutable.Map[String, TypeSpec.Builder] = mutable.Map.empty
     val bulkStringLiterals: mutable.Map[String, mutable.Map[String, FieldSpec]] = mutable.Map.empty
     val objectMapper = new ObjectMapper
@@ -180,4 +175,11 @@ object Generator {
   }
 
   private def typeName(parts: Traversable[String]): String = parts.map(capitalize).mkString
+}
+
+object Generator {
+  def main(args: Array[String]) {
+    if (args.length < 1) throw new IllegalArgumentException("Target directory must be provided as the first argument")
+    new Generator(Paths.get(args(0))).generate()
+  }
 }
