@@ -53,6 +53,12 @@
         <artifactId>scala-maven-plugin</artifactId>
         <configuration>
           <scalaVersion>${scala.minor.version}</scalaVersion>
+          <args>
+            <arg>-unchecked</arg>
+            <arg>-deprecation</arg>
+            <arg>-feature</arg>
+            <arg>-explaintypes</arg>
+          </args>
         </configuration>
         <executions>
           <execution>
