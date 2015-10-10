@@ -12,24 +12,85 @@ import xnioredis.commands._
 import xnioredis.decoder.parser.{ArrayReplyParser, BulkStringReplyParser, IntegerReplyParser, SimpleStringReplyParser}
 import xnioredis.encoder.{Encoder, MultiEncoder, MultiPairEncoder, RespArrayElementsWriter}
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.io.Source
 
-object Generator {
+class Generator(dir: Path) {
   private val skippedGroups: Set[String] = Set("scripting", "transactions")
   private val supportedArgAttrs: Set[String] = Set("name", "type", "multiple", "optional")
   private val classLoader = Generator.getClass.getClassLoader
 
-  def main(args: Array[String]) {
-    if (args.length < 1) throw new IllegalArgumentException("Target directory must be provided as the first argument")
-    generate(Paths.get(args(0)))
-  }
-
-  def generate(dir: Path) {
+  def generate() {
     val groupBuilders: mutable.Map[String, TypeSpec.Builder] = mutable.Map.empty
+    val commandClassNames: mutable.Map[Int, ClassName] = mutable.Map(0 -> ClassName.get(classOf[Command[_]]))
     val bulkStringLiterals: mutable.Map[String, mutable.Map[String, FieldSpec]] = mutable.Map.empty
     val objectMapper = new ObjectMapper
     objectMapper.registerModule(DefaultScalaModule)
+
+    def getCommandClassName(argsNum: Int) = {
+      commandClassNames.getOrElseUpdate(argsNum, {
+        val className = ClassName.get("xnioredis.commands", "Command" + argsNum)
+        val argTypeVars = Seq.tabulate(argsNum) {
+          n => TypeVariableName.get("T" + (n + 1))
+        }
+        val replyTypeVar = TypeVariableName.get("R")
+        val args = argTypeVars.zipWithIndex map {
+          case (argTypeVar, n) => ParameterSpec.builder(argTypeVar, "arg" + (n + 1)).build()
+        }
+        val returnType = ParameterizedTypeName.get(ClassName.get(classOf[Command[_]]), replyTypeVar)
+        val applyMethod = MethodSpec.methodBuilder("apply").addParameters(args.asJava)
+            .addModifiers(PUBLIC, ABSTRACT).returns(returnType).build()
+        val classSpec = TypeSpec.interfaceBuilder(className.simpleName()).addModifiers(PUBLIC)
+            .addTypeVariables((argTypeVars :+ replyTypeVar).asJava).addMethod(applyMethod).build()
+        val javaFile = JavaFile.builder(className.packageName(), classSpec).build()
+        javaFile.writeTo(dir)
+        className
+      })
+    }
+
+    def getNamesAndTypes(arg: Map[String, Any]) = (arg("name"), arg("type")) match {
+      case (n: String, t: String) => Seq((n, t))
+      case (n: List[String@unchecked], t: List[String@unchecked]) => n zip t
+    }
+
+    def buildMethodSpec(commandName: String, summary: String, replyType: ClassName,
+        arguments: Seq[Map[String, Any]], nameConstants: Traversable[FieldSpec]): MethodSpec = {
+      val returnTypeVar = TypeVariableName.get("R")
+      val replyParserParam = ParameterSpec.builder(
+        ParameterizedTypeName.get(replyType, WildcardTypeName.subtypeOf(returnTypeVar)), "replyParser").build
+      val methodName = commandName.replace(' ', '_').replace('-', '_').toLowerCase
+      val methodBuilder = MethodSpec.methodBuilder(methodName).addModifiers(PUBLIC, STATIC).addJavadoc(summary + '\n')
+      val (argNames, typeVars, params) = arguments.map(argDef => {
+        val multiple = argDef.get("multiple") match {
+          case Some(_) => true
+          case None => false
+        }
+        val argNames = getNamesAndTypes(argDef).map(_._1)
+        val argName = varOrMethodName(argNames.flatMap(_.split('-')))
+        val typeVar = TypeVariableName.get(capitalize(argName))
+        val encoderClass = ClassName.get((multiple, argNames.size) match {
+          case (false, 1) => classOf[Encoder[_]]
+          case (true, 1) => classOf[MultiEncoder[_]]
+          case (true, 2) => classOf[MultiPairEncoder[_]]
+          case _ => throw new IllegalStateException
+        })
+        val encoderParam = ParameterSpec.builder(
+          ParameterizedTypeName.get(encoderClass, WildcardTypeName.supertypeOf(typeVar)), argName + "Encoder").build
+        methodBuilder.addTypeVariable(typeVar).addParameter(encoderParam)
+        (argName, typeVar, encoderParam)
+      }).unzip3
+      val argsNum = arguments.size
+      val commandClassName = getCommandClassName(argsNum)
+      val typeArguments = (0 until argsNum).map(typeVars(_)) :+ returnTypeVar
+      val returnType: TypeName = ParameterizedTypeName.get(commandClassName, typeArguments: _*)
+
+      methodBuilder.addTypeVariable(returnTypeVar).returns(returnType).addParameter(replyParserParam)
+      val args = (argNames :+ replyParserParam) ++ nameConstants ++ params
+      methodBuilder.addStatement(format(nameConstants.size, argsNum), args: _*)
+      methodBuilder.build
+    }
+
     val commands = managed(classLoader.getResourceAsStream("commands.json")) acquireAndGet {
       stream => objectMapper.readValue(stream, classOf[mutable.LinkedHashMap[String, Map[String, Any]]])
     }
@@ -40,8 +101,9 @@ object Generator {
         printf("Group %s is not supported. Skipping %s\t%s\n", group, commandName, arguments.mkString(", "))
       } else {
         val mandatoryArguments = arguments.filter(_.get("optional").isEmpty)
-        if (mandatoryArguments.size < 4 &&
-            mandatoryArguments.forall(argDef => argDef.keySet.subsetOf(supportedArgAttrs) && isNameSupported(argDef("name")))) {
+        if (mandatoryArguments forall {
+          argDef => argDef.keySet.subsetOf(supportedArgAttrs) && isNameSupported(argDef("name"))
+        }) {
           val classBuilder: TypeSpec.Builder = groupBuilders.getOrElseUpdate(group, {
             val className = typeName(group.split("_"))
             TypeSpec.classBuilder(className).addModifiers(PUBLIC).superclass(classOf[Commands])
@@ -93,57 +155,6 @@ object Generator {
     }
   }
 
-  private def buildMethodSpec(commandName: String, summary: String, replyType: ClassName,
-      mandatoryArguments: Seq[Map[String, Any]], nameConstants: Traversable[FieldSpec]): MethodSpec = {
-    val returnTypeVar = TypeVariableName.get("R")
-    val replyParserParam = ParameterSpec.builder(
-      ParameterizedTypeName.get(replyType, WildcardTypeName.subtypeOf(returnTypeVar)), "replyParser").build
-    val methodName: String = commandName.replace(' ', '_').replace('-', '_').toLowerCase
-    val methodBuilder = MethodSpec.methodBuilder(methodName).addModifiers(PUBLIC, STATIC).addJavadoc(summary + '\n')
-    val (argNames, typeVars, params) = mandatoryArguments.map(argDef => {
-      val multiple: Boolean = argDef.get("multiple") match {
-        case Some(_) => true
-        case None => false
-      }
-      val name = argDef("name")
-      val (argName, isPair) = name match {
-        case s: String =>
-          (varOrMethodName(s.split("-")), false)
-        case names: List[String] =>
-          if (!multiple) throw new IllegalStateException
-          if (names.size != 2) throw new IllegalStateException
-          (varOrMethodName(names), true)
-      }
-      val argType = argDef.get("type")
-      if (argType.isEmpty) {
-        throw new IllegalStateException
-      }
-      val typeVar = TypeVariableName.get(capitalize(argName))
-      val encoderClass = ClassName.get(
-        if (multiple)
-          if (isPair) classOf[MultiPairEncoder[_]]
-          else classOf[MultiEncoder[_]]
-        else classOf[Encoder[_]]
-      )
-      val encoderParam = ParameterSpec.builder(
-        ParameterizedTypeName.get(encoderClass, WildcardTypeName.supertypeOf(typeVar)), argName + "Encoder").build
-      methodBuilder.addTypeVariable(typeVar).addParameter(encoderParam)
-      (argName, typeVar, encoderParam)
-    }).unzip3
-    val returnType: TypeName = mandatoryArguments.size match {
-      case 0 => ParameterizedTypeName.get(ClassName.get(classOf[Command[_]]), returnTypeVar)
-      case 1 => ParameterizedTypeName.get(ClassName.get(classOf[Command1[_, _]]), typeVars(0), returnTypeVar)
-      case 2 => ParameterizedTypeName.get(ClassName.get(classOf[Command2[_, _, _]]), typeVars(0), typeVars(1), returnTypeVar)
-      case 3 => ParameterizedTypeName.get(ClassName.get(classOf[Command3[_, _, _, _]]), typeVars(0), typeVars(1), typeVars(2), returnTypeVar)
-      case _ => throw new IllegalStateException("name: " + commandName + ", args: " + mandatoryArguments.size)
-    }
-
-    methodBuilder.addTypeVariable(returnTypeVar).returns(returnType).addParameter(replyParserParam)
-    val args = (argNames :+ replyParserParam) ++ nameConstants ++ params
-    methodBuilder.addStatement(format(nameConstants.size, mandatoryArguments.size), args: _*)
-    methodBuilder.build
-  }
-
   private def format(namePartsNum: Int, paramsNum: Int): String = {
     val sb = new StringBuilder("return ")
     if (paramsNum > 0) {
@@ -180,4 +191,11 @@ object Generator {
   }
 
   private def typeName(parts: Traversable[String]): String = parts.map(capitalize).mkString
+}
+
+object Generator {
+  def main(args: Array[String]) {
+    if (args.length < 1) throw new IllegalArgumentException("Target directory must be provided as the first argument")
+    new Generator(Paths.get(args(0))).generate()
+  }
 }
