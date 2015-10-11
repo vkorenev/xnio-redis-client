@@ -6,6 +6,7 @@ import javax.lang.model.element.Modifier._
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.squareup.javapoet.TypeSpec.Builder
 import com.squareup.javapoet._
 import resource._
 import xnioredis.Command
@@ -22,12 +23,57 @@ class Generator(dir: Path) {
   private val supportedArgAttrs: Set[String] = Set("name", "type", "multiple", "optional")
   private val classLoader = Generator.getClass.getClassLoader
 
+  def checkNotMandatory(args: List[Map[String, Any]]) = {
+    val mandatoryArgs = args.filter(arg => isMandatory(arg) && !isMultiple(arg))
+    if (mandatoryArgs.nonEmpty) {
+      throw new Exception("Mandatory arguments are following optional: " + mandatoryArgs.mkString(", "))
+    }
+  }
+
   def generate() {
     val groupBuilders: mutable.Map[String, TypeSpec.Builder] = mutable.Map.empty
     val commandClassNames: mutable.Map[Int, ClassName] = mutable.Map(0 -> ClassName.get(classOf[Command[_]]))
     val bulkStringLiterals: mutable.Map[String, mutable.Map[String, FieldSpec]] = mutable.Map.empty
     val objectMapper = new ObjectMapper
     objectMapper.registerModule(DefaultScalaModule)
+
+    def generateCommand(group: String, commandName: String, definition: Map[String, Any]): Any = {
+      getReplyType(commandName) match {
+        case Some(replyType) =>
+          val arguments = definition.getOrElse("arguments", List.empty).asInstanceOf[List[Map[String, Any]]]
+          val (mandatoryArguments, optionalArguments) = arguments.span(isMandatory)
+          checkNotMandatory(optionalArguments)
+          if (mandatoryArguments.forall(isArgumentSupported)) {
+            val classBuilder: Builder = groupBuilders.getOrElseUpdate(group, {
+              val className = typeName(group.split('_'))
+              TypeSpec.classBuilder(className).addModifiers(PUBLIC).superclass(classOf[Commands])
+            })
+            val thisGroupLiterals = bulkStringLiterals.getOrElseUpdate(group, mutable.Map.empty)
+            val nameConstants = commandName.split(' ') map { namePart =>
+              thisGroupLiterals.getOrElseUpdate(namePart, {
+                val fieldSpec = FieldSpec.builder(classOf[RespArrayElementsWriter], namePart.replace('-', '_'),
+                  PRIVATE, STATIC, FINAL).initializer("new $T($S)", classOf[BulkStringLiteral], namePart).build()
+                classBuilder.addField(fieldSpec)
+                fieldSpec
+              })
+            }
+            val summary = definition("summary").asInstanceOf[String]
+            val methodSpec = buildMethodSpec(commandName, summary, replyType, mandatoryArguments, nameConstants)
+            classBuilder.addMethod(methodSpec)
+            if (optionalArguments.size == 1) {
+              val optionalArg = optionalArguments.head
+              if (isArgumentSupported(optionalArg)) {
+                val methodSpec = buildMethodSpec(commandName, summary, replyType, mandatoryArguments :+ optionalArg, nameConstants)
+                classBuilder.addMethod(methodSpec)
+              }
+            }
+          } else {
+            printf("Some arguments are not supported: %s\t(%s)\t%s\n", commandName, group, arguments.mkString(", "))
+          }
+        case None =>
+          printf("Reply type unknown: %s\t(%s)\n", commandName, group)
+      }
+    }
 
     def getCommandClassName(argsNum: Int) = {
       commandClassNames.getOrElseUpdate(argsNum, {
@@ -63,10 +109,7 @@ class Generator(dir: Path) {
       val methodName = varOrMethodName(commandName.toLowerCase(Locale.ENGLISH).split(Array(' ', '-')))
       val methodBuilder = MethodSpec.methodBuilder(methodName).addModifiers(PUBLIC, STATIC).addJavadoc(summary + '\n')
       val (argNames, typeVars, params) = arguments.map(argDef => {
-        val multiple = argDef.get("multiple") match {
-          case Some(_) => true
-          case None => false
-        }
+        val multiple = isMultiple(argDef)
         val argNames = getNamesAndTypes(argDef).map(_._1)
         val argName = varOrMethodName(argNames.flatMap(_.split('-')))
         val typeVar = TypeVariableName.get(capitalize(argName))
@@ -96,38 +139,16 @@ class Generator(dir: Path) {
       stream => objectMapper.readValue(stream, classOf[mutable.LinkedHashMap[String, Map[String, Any]]])
     }
     commands.foreach { case (commandName, definition) =>
-      val arguments = definition.getOrElse("arguments", List.empty).asInstanceOf[List[Map[String, Any]]]
       val group = definition("group").asInstanceOf[String]
       if (skippedGroups.contains(group)) {
-        printf("Group %s is not supported. Skipping %s\t%s\n", group, commandName, arguments.mkString(", "))
+        printf("Group %s is not supported. Skipping %s\n", group, commandName)
       } else {
-        val mandatoryArguments = arguments.filter(_.get("optional").isEmpty)
-        if (mandatoryArguments forall {
-          argDef => argDef.keySet.subsetOf(supportedArgAttrs) && isNameSupported(argDef("name"))
-        }) {
-          val classBuilder: TypeSpec.Builder = groupBuilders.getOrElseUpdate(group, {
-            val className = typeName(group.split("_"))
-            TypeSpec.classBuilder(className).addModifiers(PUBLIC).superclass(classOf[Commands])
-          })
-          val thisGroupLiterals = bulkStringLiterals.getOrElseUpdate(group, mutable.Map.empty)
-          val nameParts = commandName.split(" ")
-          val nameConstants = nameParts.map(namePart => thisGroupLiterals.getOrElseUpdate(namePart, {
-            val fieldSpec = FieldSpec.builder(classOf[RespArrayElementsWriter], namePart.replace('-', '_'),
-              PRIVATE, STATIC, FINAL).initializer("new $T($S)", classOf[BulkStringLiteral], namePart).build()
-            classBuilder.addField(fieldSpec)
-            fieldSpec
-          }))
-          val summary = definition("summary").asInstanceOf[String]
-
-          getReplyType(commandName) match {
-            case Some(replyType) =>
-              val methodSpec = buildMethodSpec(commandName, summary, replyType, mandatoryArguments, nameConstants)
-              classBuilder.addMethod(methodSpec)
-            case None =>
-              printf("Reply type unknown: %s\t(%s)\t%s\n", commandName, group, arguments.mkString(", "))
-          }
-        } else {
-          printf("Some arguments are not supported: %s\t(%s)\t%s\n", commandName, group, arguments.mkString(", "))
+        try {
+          generateCommand(group, commandName, definition)
+        } catch {
+          case e: Throwable =>
+            Console.err.printf("Failed to generate command: %s\t(%s)\n", commandName, group)
+            e.printStackTrace()
         }
       }
     }
@@ -177,8 +198,16 @@ class Generator(dir: Path) {
     sb.toString
   }
 
-  private def isNameSupported(name: Any): Boolean = {
-    name.isInstanceOf[String] || name.isInstanceOf[List[_]] && name.asInstanceOf[List[_]].size == 2
+  private def isMandatory(arg: Map[String, Any]): Boolean = arg.get("optional").isEmpty
+
+  private def isMultiple(arg: Map[String, Any]): Boolean = arg.get("multiple").isDefined
+
+  private def isArgumentSupported(arg: Map[String, Any]): Boolean = {
+    arg.keySet.subsetOf(supportedArgAttrs) && (arg("name") match {
+      case _: String => true
+      case List(_: String, _: String) => isMultiple(arg)
+      case _ => false
+    })
   }
 
   private def capitalize(s: String): String = s.charAt(0).toUpper + s.substring(1)
