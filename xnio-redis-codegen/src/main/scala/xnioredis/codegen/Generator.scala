@@ -140,9 +140,7 @@ class Generator(dir: Path) {
     }
     commands.foreach { case (commandName, definition) =>
       val group = definition("group").asInstanceOf[String]
-      if (skippedGroups.contains(group)) {
-        printf("Group %s is not supported. Skipping %s\n", group, commandName)
-      } else {
+      if (!skippedGroups.contains(group)) {
         try {
           generateCommand(group, commandName, definition)
         } catch {
@@ -150,6 +148,8 @@ class Generator(dir: Path) {
             Console.err.printf("Failed to generate command: %s\t(%s)\n", commandName, group)
             e.printStackTrace()
         }
+      } else {
+        printf("Group %s is not supported. Skipping %s\n", group, commandName)
       }
     }
 
