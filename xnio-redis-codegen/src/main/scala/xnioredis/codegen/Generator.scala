@@ -65,10 +65,14 @@ class Generator(dir: Path) {
               if (isArgumentSupported(optionalArg)) {
                 val methodSpec = buildMethodSpec(commandName, summary, replyType, mandatoryArguments :+ optionalArg, nameConstants)
                 classBuilder.addMethod(methodSpec)
+              } else {
+                printf("Optional argument is not supported: %s\t(%s)\t%s\n", commandName, group, argsToString(arguments))
               }
+            } else if (optionalArguments.size > 1) {
+              printf("Some optional arguments are not supported: %s\t(%s)\t%s\n", commandName, group, argsToString(arguments))
             }
           } else {
-            printf("Some arguments are not supported: %s\t(%s)\t%s\n", commandName, group, arguments.mkString(", "))
+            printf("Some arguments are not supported: %s\t(%s)\t%s\n", commandName, group, argsToString(arguments))
           }
         case None =>
           printf("Reply type unknown: %s\t(%s)\n", commandName, group)
@@ -221,6 +225,10 @@ class Generator(dir: Path) {
   }
 
   private def typeName(parts: Traversable[String]): String = parts.map(capitalize).mkString
+
+  private def argsToString(args: List[Map[String, Any]]): String = {
+    args.map(_.mkString("{", ", ", "}")).mkString("\n\t", ",\n\t", "")
+  }
 }
 
 object Generator {
