@@ -18,7 +18,7 @@ import scala.collection.mutable
 import scala.io.Source
 
 class Generator(dir: Path) {
-  private val skippedGroups: Set[String] = Set("scripting", "transactions")
+  private val skippedGroups: Set[String] = Set("pubsub", "scripting", "transactions")
   private val supportedArgAttrs: Set[String] = Set("name", "type", "multiple", "optional")
   private val classLoader = Generator.getClass.getClassLoader
 
