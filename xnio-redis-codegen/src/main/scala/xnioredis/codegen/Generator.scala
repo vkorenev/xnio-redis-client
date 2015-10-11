@@ -1,6 +1,7 @@
 package xnioredis.codegen
 
 import java.nio.file.{Path, Paths}
+import java.util.Locale
 import javax.lang.model.element.Modifier._
 
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -59,7 +60,7 @@ class Generator(dir: Path) {
       val returnTypeVar = TypeVariableName.get("R")
       val replyParserParam = ParameterSpec.builder(
         ParameterizedTypeName.get(replyType, WildcardTypeName.subtypeOf(returnTypeVar)), "replyParser").build
-      val methodName = commandName.replace(' ', '_').replace('-', '_').toLowerCase
+      val methodName = varOrMethodName(commandName.toLowerCase(Locale.ENGLISH).split(Array(' ', '-')))
       val methodBuilder = MethodSpec.methodBuilder(methodName).addModifiers(PUBLIC, STATIC).addJavadoc(summary + '\n')
       val (argNames, typeVars, params) = arguments.map(argDef => {
         val multiple = argDef.get("multiple") match {
