@@ -55,7 +55,8 @@ class RedisClientConnection {
         this.outChannel.getWriteSetter().set(outChannel -> {
             try {
                 while (!commandsQueue.isEmpty() || !byteBufferBundle.isEmpty()) {
-                    RespSink sink = new ByteBuffersRespSink(byteBufferBundle, charsetEncoder);
+                    ByteSink byteSink = new ByteBufferSink(byteBufferBundle);
+                    RespSink sink = new ByteBuffersRespSink(byteSink, charsetEncoder);
                     CommandEncoderDecoder command;
                     while (byteBufferBundle.allocSize() <= 1 && (command = commandsQueue.poll()) != null) {
                         decoderQueue.add(command);
