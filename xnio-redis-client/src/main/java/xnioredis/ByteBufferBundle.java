@@ -7,9 +7,8 @@ import java.nio.ByteBuffer;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.function.Supplier;
 
-class ByteBufferBundle implements Supplier<ByteBuffer> {
+class ByteBufferBundle {
     private final Pool<ByteBuffer> pool;
     private final Deque<Pooled<ByteBuffer>> allocated = new LinkedList<>();
     private ByteBuffer currentWriteBuffer = null;
@@ -18,8 +17,7 @@ class ByteBufferBundle implements Supplier<ByteBuffer> {
         this.pool = pool;
     }
 
-    @Override
-    public ByteBuffer get() {
+    ByteBuffer get() {
         if (currentWriteBuffer != null) {
             if (currentWriteBuffer.hasRemaining()) {
                 return currentWriteBuffer;
@@ -27,10 +25,22 @@ class ByteBufferBundle implements Supplier<ByteBuffer> {
                 currentWriteBuffer.flip();
             }
         }
+        currentWriteBuffer = allocateBuffer();
+        return currentWriteBuffer;
+    }
+
+    ByteBuffer getNew() {
+        if (currentWriteBuffer != null) {
+            currentWriteBuffer.flip();
+        }
+        currentWriteBuffer = allocateBuffer();
+        return currentWriteBuffer;
+    }
+
+    private ByteBuffer allocateBuffer() {
         Pooled<ByteBuffer> pooledBuffer = pool.allocate();
         allocated.add(pooledBuffer);
-        currentWriteBuffer = pooledBuffer.getResource();
-        return currentWriteBuffer;
+        return pooledBuffer.getResource();
     }
 
     void startReading() {

@@ -9,7 +9,6 @@ import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
-import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
@@ -18,14 +17,14 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 class ByteBuffersRespSink implements RespSink {
     public static final byte[][] NUM_BYTES =
             IntStream.range(10, 99).mapToObj(i -> Integer.toString(i).getBytes(US_ASCII)).toArray(byte[][]::new);
-    private final Supplier<ByteBuffer> writeBufferSupplier;
+    private final ByteBufferBundle byteBufferBundle;
     private final CharsetEncoder charsetEncoder;
     private ByteBuffer buffer;
 
-    ByteBuffersRespSink(Supplier<ByteBuffer> writeBufferSupplier, CharsetEncoder charsetEncoder) {
-        this.writeBufferSupplier = writeBufferSupplier;
+    ByteBuffersRespSink(ByteBufferBundle writeBufferSupplier, CharsetEncoder charsetEncoder) {
+        this.byteBufferBundle = writeBufferSupplier;
         this.charsetEncoder = charsetEncoder;
-        this.buffer = this.writeBufferSupplier.get();
+        this.buffer = this.byteBufferBundle.get();
     }
 
     @Override
@@ -136,7 +135,7 @@ class ByteBuffersRespSink implements RespSink {
 
     private void write(byte b) {
         if (!buffer.hasRemaining()) {
-            buffer = writeBufferSupplier.get();
+            buffer = byteBufferBundle.getNew();
         }
         buffer.put(b);
     }
@@ -168,7 +167,7 @@ class ByteBuffersRespSink implements RespSink {
                 if (coderResult.isUnderflow()) {
                     break;
                 } else if (coderResult.isOverflow()) {
-                    buffer = writeBufferSupplier.get();
+                    buffer = byteBufferBundle.getNew();
                 } else {
                     coderResult.throwException();
                 }
@@ -190,7 +189,7 @@ class ByteBuffersRespSink implements RespSink {
                 break;
             } else {
                 buffer.put(src, offset, freeSpace);
-                buffer = writeBufferSupplier.get();
+                buffer = byteBufferBundle.getNew();
                 offset += freeSpace;
                 length -= freeSpace;
             }
