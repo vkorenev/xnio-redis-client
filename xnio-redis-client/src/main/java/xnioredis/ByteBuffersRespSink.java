@@ -10,13 +10,16 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
 import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 class ByteBuffersRespSink implements RespSink {
     public static final byte[][] NUM_BYTES =
-            IntStream.range(10, 99).mapToObj(i -> Integer.toString(i).getBytes(US_ASCII)).toArray(byte[][]::new);
+            IntStream.rangeClosed(10, 99).mapToObj(i -> Integer.toString(i).getBytes(US_ASCII)).toArray(byte[][]::new);
+    private static final byte[] MIN_LONG_BYTES = "-9223372036854775808".getBytes(US_ASCII);
+    private static final long[] SIZE_TABLE = LongStream.iterate(10, x -> x * 10).limit(18).map(x -> x - 1).toArray();
     private final CharsetEncoder charsetEncoder;
     private final ByteSink byteSink;
 
@@ -91,39 +94,64 @@ class ByteBuffersRespSink implements RespSink {
     @Override
     public void bulkString(int num) throws IOException {
         if (num >= 0 && num <= 9) {
-            byteSink.write((byte) '$');
-            byteSink.write((byte) '1');
-            writeCRLF();
-            byteSink.write((byte) ('0' + num));
-            writeCRLF();
+            oneDigitAsBulkString(num);
         } else if (num >= 10 && num <= 99) {
-            byteSink.write((byte) '$');
-            byteSink.write((byte) '2');
-            writeCRLF();
-            byteSink.write(NUM_BYTES[num - 10]);
-            writeCRLF();
+            twoDigitsAsBulkString(NUM_BYTES[num - 10]);
         } else {
-            bulkString(Integer.toString(num));
+            longAsBulkString(num);
         }
     }
 
     @Override
     public void bulkString(long num) throws IOException {
         if (num >= 0 && num <= 9) {
-            byteSink.write((byte) '$');
-            byteSink.write((byte) '1');
-            writeCRLF();
-            byteSink.write((byte) ('0' + (int) num));
-            writeCRLF();
+            oneDigitAsBulkString((int) num);
         } else if (num >= 10 && num <= 99) {
-            byteSink.write((byte) '$');
-            byteSink.write((byte) '2');
-            writeCRLF();
-            byteSink.write(NUM_BYTES[(int) num - 10]);
-            writeCRLF();
+            twoDigitsAsBulkString(NUM_BYTES[(int) num - 10]);
+        } else if (num == Long.MIN_VALUE) {
+            minLongAsBulkString();
         } else {
-            bulkString(Long.toString(num));
+            longAsBulkString(num);
         }
+    }
+
+    private void oneDigitAsBulkString(int num) {
+        byteSink.write((byte) '$');
+        byteSink.write((byte) '1');
+        writeCRLF();
+        byteSink.write((byte) ('0' + num));
+        writeCRLF();
+    }
+
+    private void twoDigitsAsBulkString(byte[] numByte) {
+        byteSink.write((byte) '$');
+        byteSink.write((byte) '2');
+        writeCRLF();
+        byteSink.write(numByte);
+        writeCRLF();
+    }
+
+    private void minLongAsBulkString() {
+        byteSink.write((byte) '$');
+        byteSink.write((byte) '2');
+        byteSink.write((byte) '0');
+        writeCRLF();
+        byteSink.write(MIN_LONG_BYTES);
+        writeCRLF();
+    }
+
+    private void longAsBulkString(long num) {
+        byteSink.write((byte) '$');
+        byte[] bytes = toBytes(num);
+        int len = bytes.length;
+        if (len <= 9) {
+            byteSink.write((byte) ('0' + len));
+        } else {
+            byteSink.write(NUM_BYTES[len - 10]);
+        }
+        writeCRLF();
+        byteSink.write(bytes);
+        writeCRLF();
     }
 
     @Override
@@ -137,8 +165,36 @@ class ByteBuffersRespSink implements RespSink {
         } else if (num >= 10 && num <= 99) {
             byteSink.write(NUM_BYTES[num - 10]);
         } else {
-            byteSink.write(Integer.toString(num), charsetEncoder);
+            byteSink.write(toBytes(num));
         }
+    }
+
+    static byte[] toBytes(long num) {
+        if (num == Long.MIN_VALUE) return MIN_LONG_BYTES;
+        boolean neg = num < 0;
+        if (neg) {
+            num = -num;
+        }
+        int size = neg ? stringSize(num) + 1 : stringSize(num);
+        byte[] buf = new byte[size];
+        if (neg) {
+            buf[0] = '-';
+        }
+        int i = size - 1;
+        while (num != 0) {
+            buf[i--] = (byte) ('0' + num % 10);
+            num /= 10;
+        }
+        return buf;
+    }
+
+    private static int stringSize(long x) {
+        for (int i = 0; i < SIZE_TABLE.length; i++) {
+            if (x <= SIZE_TABLE[i]) {
+                return i + 1;
+            }
+        }
+        return 19;
     }
 
     private void writeCRLF() {
