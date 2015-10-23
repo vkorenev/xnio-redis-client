@@ -17,43 +17,41 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 class ByteBuffersRespSink implements RespSink {
     public static final byte[][] NUM_BYTES =
             IntStream.range(10, 99).mapToObj(i -> Integer.toString(i).getBytes(US_ASCII)).toArray(byte[][]::new);
-    private final ByteBufferBundle byteBufferBundle;
     private final CharsetEncoder charsetEncoder;
-    private ByteBuffer buffer;
+    private final ByteSink byteSink;
 
-    ByteBuffersRespSink(ByteBufferBundle writeBufferSupplier, CharsetEncoder charsetEncoder) {
-        this.byteBufferBundle = writeBufferSupplier;
+    ByteBuffersRespSink(ByteSink byteSink, CharsetEncoder charsetEncoder) {
+        this.byteSink = byteSink;
         this.charsetEncoder = charsetEncoder;
-        this.buffer = this.byteBufferBundle.get();
     }
 
     @Override
     public void array(int size) throws IOException {
-        write((byte) '*');
+        byteSink.write((byte) '*');
         writeInt(size);
         writeCRLF();
     }
 
     @Override
     public void bulkString(CharSequence s) throws IOException {
-        write((byte) '$');
+        byteSink.write((byte) '$');
         if (s.length() == 0) {
-            write((byte) '0');
+            byteSink.write((byte) '0');
             writeCRLF();
         } else if (UTF_8.equals(charsetEncoder.charset())) {
             writeInt(Utf8.encodedLength(s));
             writeCRLF();
-            write(s);
+            byteSink.write(s, charsetEncoder);
         } else if (charsetEncoder.maxBytesPerChar() == 1.0) {
             writeInt(s.length());
             writeCRLF();
-            write(s);
+            byteSink.write(s, charsetEncoder);
         } else {
             ByteBuffer byteBuffer = encode(s);
             int encodedLength = byteBuffer.position();
             writeInt(encodedLength);
             writeCRLF();
-            write(byteBuffer.array(), 0, encodedLength);
+            byteSink.write(byteBuffer.array(), 0, encodedLength);
         }
         writeCRLF();
     }
@@ -83,26 +81,26 @@ class ByteBuffersRespSink implements RespSink {
 
     @Override
     public void bulkString(byte[] src, int offset, int length) throws IOException {
-        write((byte) '$');
+        byteSink.write((byte) '$');
         writeInt(length);
         writeCRLF();
-        write(src, offset, length);
+        byteSink.write(src, offset, length);
         writeCRLF();
     }
 
     @Override
     public void bulkString(int num) throws IOException {
         if (num >= 0 && num <= 9) {
-            write((byte) '$');
-            write((byte) '1');
+            byteSink.write((byte) '$');
+            byteSink.write((byte) '1');
             writeCRLF();
-            write((byte) ('0' + num));
+            byteSink.write((byte) ('0' + num));
             writeCRLF();
         } else if (num >= 10 && num <= 99) {
-            write((byte) '$');
-            write((byte) '2');
+            byteSink.write((byte) '$');
+            byteSink.write((byte) '2');
             writeCRLF();
-            write(NUM_BYTES[num - 10]);
+            byteSink.write(NUM_BYTES[num - 10]);
             writeCRLF();
         } else {
             bulkString(Integer.toString(num));
@@ -112,16 +110,16 @@ class ByteBuffersRespSink implements RespSink {
     @Override
     public void bulkString(long num) throws IOException {
         if (num >= 0 && num <= 9) {
-            write((byte) '$');
-            write((byte) '1');
+            byteSink.write((byte) '$');
+            byteSink.write((byte) '1');
             writeCRLF();
-            write((byte) ('0' + (int) num));
+            byteSink.write((byte) ('0' + (int) num));
             writeCRLF();
         } else if (num >= 10 && num <= 99) {
-            write((byte) '$');
-            write((byte) '2');
+            byteSink.write((byte) '$');
+            byteSink.write((byte) '2');
             writeCRLF();
-            write(NUM_BYTES[(int) num - 10]);
+            byteSink.write(NUM_BYTES[(int) num - 10]);
             writeCRLF();
         } else {
             bulkString(Long.toString(num));
@@ -130,69 +128,21 @@ class ByteBuffersRespSink implements RespSink {
 
     @Override
     public void writeRaw(byte[] bytes) throws IOException {
-        write(bytes);
-    }
-
-    private void write(byte b) {
-        if (!buffer.hasRemaining()) {
-            buffer = byteBufferBundle.getNew();
-        }
-        buffer.put(b);
+        byteSink.write(bytes);
     }
 
     private void writeInt(int num) throws CharacterCodingException {
         if (num >= 0 && num <= 9) {
-            write((byte) ('0' + num));
+            byteSink.write((byte) ('0' + num));
         } else if (num >= 10 && num <= 99) {
-            write(NUM_BYTES[num - 10]);
+            byteSink.write(NUM_BYTES[num - 10]);
         } else {
-            write(Integer.toString(num));
+            byteSink.write(Integer.toString(num), charsetEncoder);
         }
     }
 
     private void writeCRLF() {
-        write((byte) '\r');
-        write((byte) '\n');
-    }
-
-    private void write(CharSequence s) throws CharacterCodingException {
-        CharBuffer in = CharBuffer.wrap(s);
-        try {
-            while (true) {
-                CoderResult coderResult =
-                        in.hasRemaining() ? charsetEncoder.encode(in, buffer, true) : CoderResult.UNDERFLOW;
-                if (coderResult.isUnderflow()) {
-                    coderResult = charsetEncoder.flush(buffer);
-                }
-                if (coderResult.isUnderflow()) {
-                    break;
-                } else if (coderResult.isOverflow()) {
-                    buffer = byteBufferBundle.getNew();
-                } else {
-                    coderResult.throwException();
-                }
-            }
-        } finally {
-            charsetEncoder.reset();
-        }
-    }
-
-    private void write(byte[] src) {
-        write(src, 0, src.length);
-    }
-
-    private void write(byte[] src, int offset, int length) {
-        while (true) {
-            int freeSpace = buffer.remaining();
-            if (freeSpace >= length) {
-                buffer.put(src, offset, length);
-                break;
-            } else {
-                buffer.put(src, offset, freeSpace);
-                buffer = byteBufferBundle.getNew();
-                offset += freeSpace;
-                length -= freeSpace;
-            }
-        }
+        byteSink.write((byte) '\r');
+        byteSink.write((byte) '\n');
     }
 }
